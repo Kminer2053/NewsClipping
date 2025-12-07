@@ -757,6 +757,7 @@ function copyKakaoFormat() {
     // 상세 페이지에서 기사 정보 추출 (언론사명, 기사 제목, URL)
     const lines = window.currentResult.split('\n');
     let inDetailPage = false;
+    let inSummaryPage = true;
     let currentPublisher = '';
     let currentTitle = '';
     let currentUrl = '';
@@ -768,11 +769,28 @@ function copyKakaoFormat() {
         // 상세 페이지 시작 감지
         if (line === '---' || line.startsWith('* 각 뉴스 상세 페이지')) {
             inDetailPage = true;
+            inSummaryPage = false;
             continue;
+        }
+
+        // 요약 페이지에서 언론사명이 나오면 상세 페이지로 전환 (자동 감지)
+        if (inSummaryPage && i > 5) {
+            const isPublisherNameForDetection = line.match(/^[가-힣][가-힣\s\d\w]*$/) && 
+                !line.includes('주요') && !line.includes('브리핑') && 
+                line.length < 20 && !line.startsWith('☐') && !line.startsWith('○') &&
+                !line.startsWith('**') && line !== '---' && !line.match(/^\(URL/) &&
+                !line.match(/^https?:\/\//) && !line.match(/^\(URL 생략/) &&
+                !line.match(/^URL:/i);
+            
+            if (isPublisherNameForDetection) {
+                inDetailPage = true;
+                inSummaryPage = false;
+            }
         }
 
         if (inDetailPage) {
             // 언론사명 감지 (짧은 한글 텍스트, 숫자 포함 가능)
+            // 이미 넘버링이 있는 경우(예: "1. 매일경제")도 처리
             const hasExistingNumber = line.match(/^\d+\.\s*(.+)$/);
             const publisherNameOnly = hasExistingNumber ? hasExistingNumber[1] : line;
             const isPublisherName = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/) && 

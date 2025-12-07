@@ -288,10 +288,34 @@ function applyDefaults() {
         // 새 기본값으로 강제 업데이트
         localStorage.setItem(STORAGE_KEY_INITIAL, JSON.stringify(INITIAL_DEFAULTS));
         localStorage.setItem(STORAGE_KEY_VERSION, CURRENT_VERSION);
+        // 저장된 기본값도 새 버전으로 업데이트 (서버 배포 기준)
         localStorage.setItem(STORAGE_KEY_DEFAULTS, JSON.stringify(INITIAL_DEFAULTS));
         console.log(`[기본값 업데이트] 버전 ${savedVersion || '없음'} → ${CURRENT_VERSION}로 업데이트되었습니다.`);
+        
+        // 서버 배포 기준 최신 기본값을 바로 UI에 적용
+        const defaults = INITIAL_DEFAULTS;
+        const today = new Date().toISOString().split('T')[0];
+        const dateValue = defaults.date || today;
+        
+        document.getElementById('dateInput').value = dateValue;
+        
+        // 헤더가 없으면 날짜로부터 자동 생성
+        if (!defaults.header) {
+            document.getElementById('headerInput').value = generateHeaderFromDate(dateValue);
+        } else {
+            document.getElementById('headerInput').value = defaults.header;
+        }
+        
+        document.getElementById('basicSettingInput').value = defaults.basicSetting || '';
+        document.getElementById('categoryDefinitionInput').value = defaults.categoryDefinition || '';
+        document.getElementById('categoryRuleInput').value = defaults.categoryRule || '';
+        document.getElementById('selectionPrincipleInput').value = defaults.selectionPrinciple || '';
+        document.getElementById('outputFormatInput').value = defaults.outputFormat || '';
+        document.getElementById('articleListInput').value = defaults.articleList || '';
+        return; // 여기서 종료
     }
     
+    // 버전이 같으면 저장된 값 사용 (하지만 내용 검증은 loadDefaults에서 수행)
     const defaults = loadDefaults();
     const today = new Date().toISOString().split('T')[0];
     const dateValue = defaults.date || today;

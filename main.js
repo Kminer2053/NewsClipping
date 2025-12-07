@@ -242,11 +242,12 @@ function saveDefaults() {
 
 // 기본값 초기화
 function resetDefaults() {
-    if (confirm('초기 설정값으로 되돌리시겠습니까?\n\n최신 버전의 기본값으로 업데이트됩니다.')) {
-        // 최신 기본값으로 업데이트
+    if (confirm('초기 설정값으로 되돌리시겠습니까?\n\n서버에 배포된 최신 기본값으로 되돌아갑니다.\n(현재 저장된 프롬프트 설정값은 유지됩니다)')) {
+        // 서버 배포 기준 최신 기본값으로 초기화 설정값 업데이트
         localStorage.setItem(STORAGE_KEY_INITIAL, JSON.stringify(INITIAL_DEFAULTS));
         localStorage.setItem(STORAGE_KEY_VERSION, CURRENT_VERSION);
         
+        // UI에 서버 배포 기준 최신 기본값 적용
         document.getElementById('dateInput').value = INITIAL_DEFAULTS.date;
         document.getElementById('headerInput').value = INITIAL_DEFAULTS.header || '';
         document.getElementById('basicSettingInput').value = INITIAL_DEFAULTS.basicSetting || '';
@@ -256,8 +257,9 @@ function resetDefaults() {
         document.getElementById('outputFormatInput').value = INITIAL_DEFAULTS.outputFormat || '';
         document.getElementById('articleListInput').value = INITIAL_DEFAULTS.articleList || '';
         
-        localStorage.setItem(STORAGE_KEY_DEFAULTS, JSON.stringify(INITIAL_DEFAULTS));
-        alert('최신 초기 설정값으로 업데이트되었습니다.');
+        // 주의: STORAGE_KEY_DEFAULTS는 업데이트하지 않음 (사용자가 저장한 프롬프트 설정값 유지)
+        // 초기화 버튼은 서버 배포 기준 초기값으로 UI만 되돌림
+        alert('서버 배포 기준 최신 초기 설정값으로 되돌렸습니다.\n\n💡 현재 입력된 값들을 "기본값 저장" 버튼으로 저장하면 다음에 불러올 수 있습니다.');
     }
 }
 

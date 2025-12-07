@@ -835,18 +835,14 @@ function copyKakaoFormat() {
                 continue;
             }
             
-            // 볼드체가 없는 경우: 언론사명 다음 줄이 제목일 수 있음
+            // 볼드체가 없는 경우: 언론사명 다음에 나오는 첫 번째 긴 줄이 제목일 수 있음
             if (!currentTitle && currentPublisher && line && 
                 !line.match(/^https?:\/\//) && !line.match(/^URL:/i) &&
-                !line.match(/^\d+\.\s*/) && line.length > 10) {
-                // 기사 내용의 첫 줄이 제목일 수 있음 (긴 텍스트)
-                // 하지만 실제로는 제목이 별도로 있을 수 있으므로, 
-                // **로 감싸진 제목을 우선 찾고, 없으면 첫 번째 긴 줄을 제목으로 사용
-                // 일단 제목이 없고 현재 줄이 길면 제목 후보로 저장
-                if (line.length > 20 && !currentTitle) {
-                    currentTitle = line;
-                    continue;
-                }
+                !line.match(/^\d+\.\s*/) && line.length > 15 &&
+                !line.startsWith('☐') && !line.startsWith('○')) {
+                // 언론사명 다음에 나오는 첫 번째 의미있는 긴 줄을 제목으로 간주
+                currentTitle = line;
+                continue;
             }
 
             // URL 추출

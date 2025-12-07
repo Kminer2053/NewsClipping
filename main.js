@@ -196,6 +196,7 @@ function loadDefaults() {
     
     // 버전이 다르거나 초기값이 없으면 새 기본값으로 업데이트
     if (savedVersion !== CURRENT_VERSION || !localStorage.getItem(STORAGE_KEY_INITIAL)) {
+        console.log(`[기본값 업데이트] 버전 불일치 감지: ${savedVersion || '없음'} → ${CURRENT_VERSION}`);
         localStorage.setItem(STORAGE_KEY_INITIAL, JSON.stringify(INITIAL_DEFAULTS));
         localStorage.setItem(STORAGE_KEY_VERSION, CURRENT_VERSION);
         // 저장된 기본값도 새 버전으로 업데이트
@@ -203,8 +204,14 @@ function loadDefaults() {
         return INITIAL_DEFAULTS;
     }
     
+    // 버전이 같으면 저장된 기본값 사용 (사용자가 수정한 경우)
     if (saved) {
-        return JSON.parse(saved);
+        try {
+            return JSON.parse(saved);
+        } catch (e) {
+            console.error('[기본값 로드] 저장된 값 파싱 실패, 초기값 사용:', e);
+            return INITIAL_DEFAULTS;
+        }
     }
     return INITIAL_DEFAULTS;
 }
@@ -263,6 +270,18 @@ function generateHeaderFromDate(dateString) {
 
 // UI에 기본값 적용
 function applyDefaults() {
+    // 버전 체크 및 자동 업데이트
+    const savedVersion = localStorage.getItem(STORAGE_KEY_VERSION);
+    const needsUpdate = savedVersion !== CURRENT_VERSION || !localStorage.getItem(STORAGE_KEY_INITIAL);
+    
+    if (needsUpdate) {
+        // 새 기본값으로 강제 업데이트
+        localStorage.setItem(STORAGE_KEY_INITIAL, JSON.stringify(INITIAL_DEFAULTS));
+        localStorage.setItem(STORAGE_KEY_VERSION, CURRENT_VERSION);
+        localStorage.setItem(STORAGE_KEY_DEFAULTS, JSON.stringify(INITIAL_DEFAULTS));
+        console.log(`[기본값 업데이트] 버전 ${savedVersion || '없음'} → ${CURRENT_VERSION}로 업데이트되었습니다.`);
+    }
+    
     const defaults = loadDefaults();
     const today = new Date().toISOString().split('T')[0];
     const dateValue = defaults.date || today;

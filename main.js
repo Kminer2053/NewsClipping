@@ -96,6 +96,8 @@ const DEFAULT_PROMPT_TEMPLATE = `당신의 역할:
 // 기본값 관리
 const STORAGE_KEY_DEFAULTS = 'newsClipping_defaults';
 const STORAGE_KEY_INITIAL = 'newsClipping_initial';
+const STORAGE_KEY_VERSION = 'newsClipping_version';
+const CURRENT_VERSION = '2.0.0'; // 기본값 업데이트 시 버전 증가
 
 // 초기 기본값
 const INITIAL_DEFAULTS = {
@@ -189,11 +191,16 @@ const INITIAL_DEFAULTS = {
 
 // 기본값 로드
 function loadDefaults() {
+    const savedVersion = localStorage.getItem(STORAGE_KEY_VERSION);
     const saved = localStorage.getItem(STORAGE_KEY_DEFAULTS);
     
-    // 초기값이 저장되어 있지 않으면 저장
-    if (!localStorage.getItem(STORAGE_KEY_INITIAL)) {
+    // 버전이 다르거나 초기값이 없으면 새 기본값으로 업데이트
+    if (savedVersion !== CURRENT_VERSION || !localStorage.getItem(STORAGE_KEY_INITIAL)) {
         localStorage.setItem(STORAGE_KEY_INITIAL, JSON.stringify(INITIAL_DEFAULTS));
+        localStorage.setItem(STORAGE_KEY_VERSION, CURRENT_VERSION);
+        // 저장된 기본값도 새 버전으로 업데이트
+        localStorage.setItem(STORAGE_KEY_DEFAULTS, JSON.stringify(INITIAL_DEFAULTS));
+        return INITIAL_DEFAULTS;
     }
     
     if (saved) {
@@ -220,21 +227,22 @@ function saveDefaults() {
 
 // 기본값 초기화
 function resetDefaults() {
-    if (confirm('초기 설정값으로 되돌리시겠습니까?')) {
-        const initial = localStorage.getItem(STORAGE_KEY_INITIAL);
-        const defaults = initial ? JSON.parse(initial) : INITIAL_DEFAULTS;
+    if (confirm('초기 설정값으로 되돌리시겠습니까?\n\n최신 버전의 기본값으로 업데이트됩니다.')) {
+        // 최신 기본값으로 업데이트
+        localStorage.setItem(STORAGE_KEY_INITIAL, JSON.stringify(INITIAL_DEFAULTS));
+        localStorage.setItem(STORAGE_KEY_VERSION, CURRENT_VERSION);
         
-        document.getElementById('dateInput').value = defaults.date;
-        document.getElementById('headerInput').value = defaults.header || '';
-        document.getElementById('basicSettingInput').value = defaults.basicSetting || '';
-        document.getElementById('categoryDefinitionInput').value = defaults.categoryDefinition || '';
-        document.getElementById('categoryRuleInput').value = defaults.categoryRule || '';
-        document.getElementById('selectionPrincipleInput').value = defaults.selectionPrinciple || '';
-        document.getElementById('outputFormatInput').value = defaults.outputFormat || '';
-        document.getElementById('articleListInput').value = defaults.articleList || '';
+        document.getElementById('dateInput').value = INITIAL_DEFAULTS.date;
+        document.getElementById('headerInput').value = INITIAL_DEFAULTS.header || '';
+        document.getElementById('basicSettingInput').value = INITIAL_DEFAULTS.basicSetting || '';
+        document.getElementById('categoryDefinitionInput').value = INITIAL_DEFAULTS.categoryDefinition || '';
+        document.getElementById('categoryRuleInput').value = INITIAL_DEFAULTS.categoryRule || '';
+        document.getElementById('selectionPrincipleInput').value = INITIAL_DEFAULTS.selectionPrinciple || '';
+        document.getElementById('outputFormatInput').value = INITIAL_DEFAULTS.outputFormat || '';
+        document.getElementById('articleListInput').value = INITIAL_DEFAULTS.articleList || '';
         
-        localStorage.setItem(STORAGE_KEY_DEFAULTS, JSON.stringify(defaults));
-        alert('초기 설정값으로 되돌렸습니다.');
+        localStorage.setItem(STORAGE_KEY_DEFAULTS, JSON.stringify(INITIAL_DEFAULTS));
+        alert('최신 초기 설정값으로 업데이트되었습니다.');
     }
 }
 

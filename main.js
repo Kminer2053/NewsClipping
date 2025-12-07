@@ -210,17 +210,26 @@ function loadDefaults() {
             const parsed = JSON.parse(saved);
             // 저장된 값이 최신 버전인지 확인 (selectionPrinciple에 "절대적 원칙" 포함 여부)
             // 이는 서버 배포된 최신 기본값의 특징입니다
-            if (!parsed.selectionPrinciple || !parsed.selectionPrinciple.includes('절대적 원칙')) {
+            const hasLatestContent = parsed.selectionPrinciple && parsed.selectionPrinciple.includes('절대적 원칙');
+            console.log('[기본값 검증]', {
+                hasSelectionPrinciple: !!parsed.selectionPrinciple,
+                hasLatestContent,
+                selectionPrinciplePreview: parsed.selectionPrinciple ? parsed.selectionPrinciple.substring(0, 50) + '...' : '없음'
+            });
+            
+            if (!hasLatestContent) {
                 console.log('[기본값 업데이트] 저장된 값이 이전 버전입니다. 서버 배포 기준으로 새 기본값으로 업데이트합니다.');
                 localStorage.setItem(STORAGE_KEY_DEFAULTS, JSON.stringify(INITIAL_DEFAULTS));
                 return INITIAL_DEFAULTS;
             }
+            console.log('[기본값 로드] 저장된 최신 버전 기본값 사용');
             return parsed;
         } catch (e) {
             console.error('[기본값 로드] 저장된 값 파싱 실패, 초기값 사용:', e);
             return INITIAL_DEFAULTS;
         }
     }
+    console.log('[기본값 로드] 저장된 값 없음, 초기값 사용');
     return INITIAL_DEFAULTS;
 }
 

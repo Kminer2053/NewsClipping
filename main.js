@@ -448,11 +448,13 @@ function displayResult(result) {
         }
         
         // 상세 페이지 자동 감지: 언론사명 패턴이 나오면 상세 페이지로 전환
-        const isPublisherName = line.match(/^[가-힣\s]+$/) && !line.includes('주요') && !line.includes('뉴스') && 
-            !line.includes('브리핑') && line.length < 20 && !line.startsWith('☐') && !line.startsWith('○') && 
-            !line.startsWith('**') && line !== '---' && !line.match(/^\(URL/);
+        const isPublisherNameForDetection = line.match(/^[가-힣][가-힣\s\d\w]*$/) && 
+            !line.includes('주요') && !line.includes('브리핑') && 
+            line.length < 20 && !line.startsWith('☐') && !line.startsWith('○') && 
+            !line.startsWith('**') && line !== '---' && !line.match(/^\(URL/) &&
+            !line.match(/^https?:\/\//) && !line.match(/^\(URL 생략/);
         
-        if (inSummaryPage && isPublisherName && i > 5) { // 요약 페이지에서 언론사명이 나오면 상세 페이지로 전환
+        if (inSummaryPage && isPublisherNameForDetection && i > 5) { // 요약 페이지에서 언론사명이 나오면 상세 페이지로 전환
             inSummaryPage = false;
             publisherNumber = 0;
             html += '<hr class="detail-separator">';
@@ -473,15 +475,17 @@ function displayResult(result) {
             
             // 카테고리 제목 (☐로 시작하거나 ☐ **...** 형식)
             // 여러 줄에 걸쳐 있을 수 있으므로 전체를 볼드 처리
+            // ☐ 문자를 HTML 엔티티로 처리하여 깨짐 방지
+            const checkboxChar = '☐'; // HTML에서 그대로 사용 가능
             const categoryMatch1 = line.match(/^☐\s*\*\*(.+?)\*\*/);
             const categoryMatch2 = line.match(/^\*\*☐\s*(.+?)\*\*/);
             if (categoryMatch1) {
                 // 형식: ☐ **카테고리명** (전체 볼드)
-                html += `<h2 class="category-title"><strong>☐ ${categoryMatch1[1]}</strong></h2>`;
+                html += `<h2 class="category-title"><strong>${checkboxChar} ${categoryMatch1[1]}</strong></h2>`;
                 continue;
             } else if (categoryMatch2) {
                 // 형식: **☐ 카테고리명** (전체 볼드)
-                html += `<h2 class="category-title"><strong>☐ ${categoryMatch2[1]}</strong></h2>`;
+                html += `<h2 class="category-title"><strong>${checkboxChar} ${categoryMatch2[1]}</strong></h2>`;
                 continue;
             } else if (line.startsWith('☐ ')) {
                 // 일반 형식: ☐ 카테고리명 (마크다운 제거 후 전체 볼드)
@@ -505,10 +509,15 @@ function displayResult(result) {
             }
         } else {
             // 상세 페이지 처리
-            // 언론사명 (짧은 한글 텍스트) - 넘버링 추가
-            if (line.match(/^[가-힣\s]+$/) && !line.includes('주요') && !line.includes('뉴스') && 
-                !line.includes('브리핑') && line.length < 20 && !line.startsWith('☐') && !line.startsWith('○') && 
-                !line.startsWith('**') && line !== '---' && !line.match(/^\(URL/)) {
+            // 언론사명 (짧은 한글 텍스트, 숫자 포함 가능) - 넘버링 추가
+            // 패턴: 한글로 시작하고, 숫자나 영문이 포함될 수 있으며, 길이가 짧고, 특수 패턴이 아님
+            const isPublisherName = line.match(/^[가-힣][가-힣\s\d\w]*$/) && 
+                !line.includes('주요') && !line.includes('브리핑') && 
+                line.length < 20 && !line.startsWith('☐') && !line.startsWith('○') && 
+                !line.startsWith('**') && line !== '---' && !line.match(/^\(URL/) &&
+                !line.match(/^https?:\/\//) && !line.match(/^\(URL 생략/);
+            
+            if (isPublisherName) {
                 publisherNumber++;
                 html += `<h3 class="publisher-name">${publisherNumber}. ${line}</h3>`;
                 continue;

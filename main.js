@@ -774,23 +774,35 @@ function copyKakaoFormat() {
         }
 
         // 요약 페이지에서 언론사명이 나오면 상세 페이지로 전환 (자동 감지)
+        // "1. 시사뉴스" 같은 형식도 감지
         if (inSummaryPage && i > 5) {
-            const isPublisherNameForDetection = line.match(/^[가-힣][가-힣\s\d\w]*$/) && 
-                !line.includes('주요') && !line.includes('브리핑') && 
-                line.length < 20 && !line.startsWith('☐') && !line.startsWith('○') &&
-                !line.startsWith('**') && line !== '---' && !line.match(/^\(URL/) &&
-                !line.match(/^https?:\/\//) && !line.match(/^\(URL 생략/) &&
-                !line.match(/^URL:/i);
+            // 이미 넘버링이 있는 경우
+            const hasNumber = line.match(/^\d+\.\s*(.+)$/);
+            const publisherNameOnly = hasNumber ? hasNumber[1] : line;
+            
+            const isPublisherNameForDetection = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/) && 
+                !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
+                publisherNameOnly.length < 20 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') &&
+                !publisherNameOnly.startsWith('**') && publisherNameOnly !== '---' && !publisherNameOnly.match(/^\(URL/) &&
+                !publisherNameOnly.match(/^https?:\/\//) && !publisherNameOnly.match(/^\(URL 생략/) &&
+                !publisherNameOnly.match(/^URL:/i);
             
             if (isPublisherNameForDetection) {
                 inDetailPage = true;
                 inSummaryPage = false;
+                // 첫 번째 언론사명 처리
+                if (hasNumber) {
+                    currentPublisher = publisherNameOnly;
+                } else {
+                    currentPublisher = line;
+                }
+                continue;
             }
         }
 
         if (inDetailPage) {
             // 언론사명 감지 (짧은 한글 텍스트, 숫자 포함 가능)
-            // 이미 넘버링이 있는 경우(예: "1. 매일경제")도 처리
+            // 이미 넘버링이 있는 경우(예: "1. 매일경제", "2. 연합뉴스TV")도 처리
             const hasExistingNumber = line.match(/^\d+\.\s*(.+)$/);
             const publisherNameOnly = hasExistingNumber ? hasExistingNumber[1] : line;
             const isPublisherName = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/) && 
@@ -816,11 +828,25 @@ function copyKakaoFormat() {
                 continue;
             }
 
-            // 기사 제목 (**...** 형식)
+            // 기사 제목 (**...** 형식 또는 일반 텍스트)
             const titleMatch = line.match(/\*\*(.+?)\*\*/);
             if (titleMatch) {
                 currentTitle = titleMatch[1].replace(/\[\d+\]/g, '').trim();
                 continue;
+            }
+            
+            // 볼드체가 없는 경우: 언론사명 다음 줄이 제목일 수 있음
+            if (!currentTitle && currentPublisher && line && 
+                !line.match(/^https?:\/\//) && !line.match(/^URL:/i) &&
+                !line.match(/^\d+\.\s*/) && line.length > 10) {
+                // 기사 내용의 첫 줄이 제목일 수 있음 (긴 텍스트)
+                // 하지만 실제로는 제목이 별도로 있을 수 있으므로, 
+                // **로 감싸진 제목을 우선 찾고, 없으면 첫 번째 긴 줄을 제목으로 사용
+                // 일단 제목이 없고 현재 줄이 길면 제목 후보로 저장
+                if (line.length > 20 && !currentTitle) {
+                    currentTitle = line;
+                    continue;
+                }
             }
 
             // URL 추출

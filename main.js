@@ -511,15 +511,19 @@ function displayResult(result) {
             // 상세 페이지 처리
             // 언론사명 (짧은 한글 텍스트, 숫자 포함 가능) - 넘버링 추가
             // 패턴: 한글로 시작하고, 숫자나 영문이 포함될 수 있으며, 길이가 짧고, 특수 패턴이 아님
-            const isPublisherName = line.match(/^[가-힣][가-힣\s\d\w]*$/) && 
-                !line.includes('주요') && !line.includes('브리핑') && 
-                line.length < 20 && !line.startsWith('☐') && !line.startsWith('○') && 
-                !line.startsWith('**') && line !== '---' && !line.match(/^\(URL/) &&
-                !line.match(/^https?:\/\//) && !line.match(/^\(URL 생략/);
+            // 이미 넘버링이 포함된 경우(예: "2. 서울경제")도 처리
+            const hasExistingNumber = line.match(/^\d+\.\s*(.+)$/);
+            const publisherNameOnly = hasExistingNumber ? hasExistingNumber[1] : line;
+            
+            const isPublisherName = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/) && 
+                !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
+                publisherNameOnly.length < 20 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') && 
+                !publisherNameOnly.startsWith('**') && publisherNameOnly !== '---' && !publisherNameOnly.match(/^\(URL/) &&
+                !publisherNameOnly.match(/^https?:\/\//) && !publisherNameOnly.match(/^\(URL 생략/);
             
             if (isPublisherName) {
                 publisherNumber++;
-                html += `<h3 class="publisher-name">${publisherNumber}. ${line}</h3>`;
+                html += `<h3 class="publisher-name">${publisherNumber}. ${publisherNameOnly}</h3>`;
                 continue;
             }
             

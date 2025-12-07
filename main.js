@@ -282,7 +282,15 @@ function generateHeaderFromDate(dateString) {
 function applyDefaults() {
     // 버전 체크 및 자동 업데이트
     const savedVersion = localStorage.getItem(STORAGE_KEY_VERSION);
-    const needsUpdate = savedVersion !== CURRENT_VERSION || !localStorage.getItem(STORAGE_KEY_INITIAL);
+    const hasInitial = localStorage.getItem(STORAGE_KEY_INITIAL);
+    const needsUpdate = savedVersion !== CURRENT_VERSION || !hasInitial;
+    
+    console.log('[기본값 체크]', {
+        savedVersion,
+        CURRENT_VERSION,
+        hasInitial: !!hasInitial,
+        needsUpdate
+    });
     
     if (needsUpdate) {
         // 새 기본값으로 강제 업데이트

@@ -697,13 +697,13 @@ function copyNewsList() {
                     articleNumber++;
                     const title = match[1].trim();
                     const publisher = match[2].trim();
-                    newsListText += `${articleNumber}. ${title} (${publisher})\n`;
+                    newsListText += `${articleNumber}. ${title} (${publisher})\n\n`;
                 } else {
                     // 괄호가 없는 경우도 처리
                     const title = trimmedLine.replace(/^○/, '').trim();
                     if (title) {
                         articleNumber++;
-                        newsListText += `${articleNumber}. ${title}\n`;
+                        newsListText += `${articleNumber}. ${title}\n\n`;
                     }
                 }
             }
@@ -720,7 +720,7 @@ function copyNewsList() {
                     articleNumber++;
                     const title = match[1].trim();
                     const publisher = match[2].trim();
-                    newsListText += `${articleNumber}. ${title} (${publisher})\n`;
+                    newsListText += `${articleNumber}. ${title} (${publisher})\n\n`;
                 }
             }
         }
@@ -831,7 +831,7 @@ function copyKakaoFormat() {
     let kakaoText = dateText;
     articles.forEach((article, index) => {
         const urlText = article.url ? ` ${article.url}` : '';
-        kakaoText += `${index + 1}. ${article.title} (${article.publisher})${urlText}\n`;
+        kakaoText += `${index + 1}. ${article.title} (${article.publisher})${urlText}\n\n`;
     });
 
     kakaoText = kakaoText.trim();

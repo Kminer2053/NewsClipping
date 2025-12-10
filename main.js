@@ -196,11 +196,11 @@ const INITIAL_DEFAULTS = {
 - 각 기사의 상세 페이지에 기사 발행일자를 명시하지 않아도 되지만, 반드시 기준_날짜에 발행된 기사만 사용하세요.`,
     articleList: "",
     naverKeywords: {
-        korail: '코레일유통, 스토리웨이, 역사 상업시설, 코레일 역세권, 코레일 상업시설',
-        rail: '코레일, KTX, SRT, GTX, 도시철도, 철도 노선, 철도 안전, 역세권 개발, 철도 정책, 국가철도공단, SR, 철도 파업, 철도 사고',
-        subsidiary: '코레일관광개발, 코레일네트웍스, 코레일테크, 코레일 지역본부',
-        gov: '기재부, 국토부, SOC 투자, 역세권 규제, 공공자산, 물가 정책, 배송 정책, 노동 정책',
-        retail: '편의점, 도시락, 간편식, 역세권 상권, K-푸드, K-스낵, 캐릭터 콜라보, 유통 트렌드, 소비 트렌드, F&B, 프랜차이즈'
+        korail: '코레일유통, 스토리웨이',
+        rail: '코레일, KTX, SRT, GTX, 도시철도, 철도노선, 철도안전, 철도정책, 국가철도공단, SR, 철도파업, 철도사고',
+        subsidiary: '코레일관광개발, 코레일네트웍스, 코레일테크',
+        gov: '기재부, 국토부',
+        retail: '편의점, 역세권, 콜라보, 유통트렌드, 소비트렌드, F&B, 프랜차이즈'
     }
 };
 
@@ -631,27 +631,38 @@ function formatArticleList(articles) {
         return '';
     }
     
-    // 각 카테고리별로 최대 50개씩만 사용 (토큰 제한 방지)
-    const MAX_ARTICLES_PER_CATEGORY = 50;
+    // 1단계: 전체 리스트를 병합
+    const allArticles = [...articles];
     
-    let formatted = '=== 수집된 기사 목록 ===\n\n';
+    // 2단계: 제목 기준으로 중복 제거 (제목 정규화 후 비교)
+    const titleMap = new Map();
+    const dedupedArticles = [];
+    const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
     
-    // 카테고리별로 그룹화
+    for (const article of allArticles) {
+        const normalizedTitle = norm(article.title);
+        if (!titleMap.has(normalizedTitle)) {
+            titleMap.set(normalizedTitle, true);
+            dedupedArticles.push(article);
+        }
+    }
+    
+    console.log(`[기사 중복 제거] 원본: ${allArticles.length}건 → 제목 중복 제거 후: ${dedupedArticles.length}건`);
+    
+    // 3단계: 카테고리별로 그룹화
     const byCategory = {};
-    articles.forEach(article => {
+    dedupedArticles.forEach(article => {
         if (!byCategory[article.category]) {
             byCategory[article.category] = [];
         }
         byCategory[article.category].push(article);
     });
     
-    // 카테고리별로 출력 (각 카테고리 최대 50개)
+    // 4단계: 카테고리별로 출력 (제한 없음)
+    let formatted = '=== 수집된 기사 목록 ===\n\n';
     for (const [category, categoryArticles] of Object.entries(byCategory)) {
-        const limitedArticles = categoryArticles.slice(0, MAX_ARTICLES_PER_CATEGORY);
-        const totalCount = categoryArticles.length;
-        
-        formatted += `[${category}] (총 ${totalCount}건, 여기서는 ${limitedArticles.length}건 표시)\n`;
-        limitedArticles.forEach((article, index) => {
+        formatted += `[${category}] (${categoryArticles.length}건)\n`;
+        categoryArticles.forEach((article, index) => {
             // 간결하게: 제목과 URL만 포함 (요약 제거)
             formatted += `${index + 1}. ${article.title}\n`;
             formatted += `   ${article.url}\n`;

@@ -97,7 +97,7 @@ const DEFAULT_PROMPT_TEMPLATE = `당신의 역할:
 const STORAGE_KEY_DEFAULTS = 'newsClipping_defaults';
 const STORAGE_KEY_INITIAL = 'newsClipping_initial';
 const STORAGE_KEY_VERSION = 'newsClipping_version';
-const CURRENT_VERSION = '2.1.1'; // 기본값 업데이트 시 버전 증가
+const CURRENT_VERSION = '2.1.2'; // 기본값 업데이트 시 버전 증가
 
 // 초기 기본값
 const INITIAL_DEFAULTS = {
@@ -129,7 +129,7 @@ const INITIAL_DEFAULTS = {
 
 - **날짜 확인 필수**: 모든 기사를 선별할 때 반드시 기사의 실제 발행일자를 확인하세요. 기준_날짜와 다른 날짜의 기사는 아무리 관련성이 높아도 포함하지 마세요.
 
-- 서로 내용이 거의 같은 기사는 가장 대표성이 높은 1건만 선택합니다.
+- 같은 소재를 다룬 기사는 대표성이 높은 1건만 선택합니다.
 
 - 다음뉴스, 네이트 등과 같이 뉴스중개사이트의 자료의 경우 원문기사의 언론사를 확인하여 출처로 표시합니다.
 

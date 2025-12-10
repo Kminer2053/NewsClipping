@@ -97,7 +97,7 @@ const DEFAULT_PROMPT_TEMPLATE = `당신의 역할:
 const STORAGE_KEY_DEFAULTS = 'newsClipping_defaults';
 const STORAGE_KEY_INITIAL = 'newsClipping_initial';
 const STORAGE_KEY_VERSION = 'newsClipping_version';
-const CURRENT_VERSION = '2.1.0'; // 기본값 업데이트 시 버전 증가
+const CURRENT_VERSION = '2.1.1'; // 기본값 업데이트 시 버전 증가
 
 // 초기 기본값
 const INITIAL_DEFAULTS = {

@@ -766,11 +766,15 @@ function displayResult(result) {
         }
         
         // 상세 페이지 자동 감지: 언론사명 패턴이 나오면 상세 페이지로 전환
-        const isPublisherNameForDetection = line.match(/^[가-힣][가-힣\s\d\w]*$/) && 
-            !line.includes('주요') && !line.includes('브리핑') && 
-            line.length < 20 && !line.startsWith('☐') && !line.startsWith('○') && 
-            !line.startsWith('**') && line !== '---' && !line.match(/^\(URL/) &&
-            !line.match(/^https?:\/\//) && !line.match(/^\(URL 생략/);
+        let detectionLine = line.replace(/\s*\([^)]*\)\s*$/, '').trim(); // 괄호 제거
+        const isKoreanPublisher = detectionLine.match(/^[가-힣][가-힣\s\d\w]*$/);
+        const isEnglishPublisher = detectionLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+        
+        const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher) && 
+            !detectionLine.includes('주요') && !detectionLine.includes('브리핑') && 
+            detectionLine.length < 30 && !detectionLine.startsWith('☐') && !detectionLine.startsWith('○') && 
+            !detectionLine.startsWith('**') && detectionLine !== '---' && !detectionLine.match(/^\(URL/) &&
+            !detectionLine.match(/^https?:\/\//) && !detectionLine.match(/^\(URL 생략/);
         
         if (inSummaryPage && isPublisherNameForDetection && i > 5) { // 요약 페이지에서 언론사명이 나오면 상세 페이지로 전환
             inSummaryPage = false;

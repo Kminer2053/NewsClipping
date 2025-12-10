@@ -827,15 +827,22 @@ function displayResult(result) {
             }
         } else {
             // 상세 페이지 처리
-            // 언론사명 (짧은 한글 텍스트, 숫자 포함 가능) - 넘버링 추가
-            // 패턴: 한글로 시작하고, 숫자나 영문이 포함될 수 있으며, 길이가 짧고, 특수 패턴이 아님
+            // 언론사명 (한글 또는 영문) - 넘버링 추가
+            // 패턴: 한글로 시작하거나 영문 대문자로만 구성된 짧은 문자열
             // 이미 넘버링이 포함된 경우(예: "2. 서울경제")도 처리
             const hasExistingNumber = line.match(/^\d+\.\s*(.+)$/);
-            const publisherNameOnly = hasExistingNumber ? hasExistingNumber[1] : line;
+            let publisherNameOnly = hasExistingNumber ? hasExistingNumber[1] : line;
             
-            const isPublisherName = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/) && 
+            // 괄호 안의 부가 정보 제거 (예: "대한민국 정책브리핑(기획재정부)" → "대한민국 정책브리핑")
+            publisherNameOnly = publisherNameOnly.replace(/\s*\([^)]*\)\s*$/, '').trim();
+            
+            // 한글로 시작하는 언론사명 또는 영문 대문자만으로 구성된 언론사명 (KBS, YTN 등)
+            const isKoreanPublisher = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/);
+            const isEnglishPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]{1,10}$/); // 영문 대문자만, 2-11자
+            
+            const isPublisherName = (isKoreanPublisher || isEnglishPublisher) && 
                 !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
-                publisherNameOnly.length < 20 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') && 
+                publisherNameOnly.length < 30 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') && 
                 !publisherNameOnly.startsWith('**') && publisherNameOnly !== '---' && !publisherNameOnly.match(/^\(URL/) &&
                 !publisherNameOnly.match(/^https?:\/\//) && !publisherNameOnly.match(/^\(URL 생략/) &&
                 !publisherNameOnly.match(/^URL:/i);
@@ -1010,11 +1017,18 @@ function copyKakaoFormat() {
         if (inSummaryPage && i > 5) {
             // 이미 넘버링이 있는 경우
             const hasNumber = line.match(/^\d+\.\s*(.+)$/);
-            const publisherNameOnly = hasNumber ? hasNumber[1] : line;
+            let publisherNameOnly = hasNumber ? hasNumber[1] : line;
             
-            const isPublisherNameForDetection = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/) && 
+            // 괄호 안의 부가 정보 제거
+            publisherNameOnly = publisherNameOnly.replace(/\s*\([^)]*\)\s*$/, '').trim();
+            
+            // 한글로 시작하는 언론사명 또는 영문 대문자만으로 구성된 언론사명
+            const isKoreanPublisher = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/);
+            const isEnglishPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            
+            const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher) && 
                 !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
-                publisherNameOnly.length < 20 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') &&
+                publisherNameOnly.length < 30 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') &&
                 !publisherNameOnly.startsWith('**') && publisherNameOnly !== '---' && !publisherNameOnly.match(/^\(URL/) &&
                 !publisherNameOnly.match(/^https?:\/\//) && !publisherNameOnly.match(/^\(URL 생략/) &&
                 !publisherNameOnly.match(/^URL:/i);
@@ -1033,13 +1047,21 @@ function copyKakaoFormat() {
         }
 
         if (inDetailPage) {
-            // 언론사명 감지 (짧은 한글 텍스트, 숫자 포함 가능)
+            // 언론사명 감지 (한글 또는 영문)
             // 이미 넘버링이 있는 경우(예: "1. 매일경제", "2. 연합뉴스TV")도 처리
             const hasExistingNumber = line.match(/^\d+\.\s*(.+)$/);
-            const publisherNameOnly = hasExistingNumber ? hasExistingNumber[1] : line;
-            const isPublisherName = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/) && 
+            let publisherNameOnly = hasExistingNumber ? hasExistingNumber[1] : line;
+            
+            // 괄호 안의 부가 정보 제거
+            publisherNameOnly = publisherNameOnly.replace(/\s*\([^)]*\)\s*$/, '').trim();
+            
+            // 한글로 시작하는 언론사명 또는 영문 대문자만으로 구성된 언론사명
+            const isKoreanPublisher = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/);
+            const isEnglishPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            
+            const isPublisherName = (isKoreanPublisher || isEnglishPublisher) && 
                 !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
-                publisherNameOnly.length < 20 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') &&
+                publisherNameOnly.length < 30 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') &&
                 !publisherNameOnly.startsWith('**') && publisherNameOnly !== '---' && !publisherNameOnly.match(/^\(URL/) &&
                 !publisherNameOnly.match(/^https?:\/\//) && !publisherNameOnly.match(/^\(URL 생략/) &&
                 !publisherNameOnly.match(/^URL:/i);

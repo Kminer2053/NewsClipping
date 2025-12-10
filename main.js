@@ -625,11 +625,14 @@ async function collectArticles(date) {
     }
 }
 
-// 기사 리스트를 프롬프트 형식으로 변환
+// 기사 리스트를 프롬프트 형식으로 변환 (토큰 제한을 위해 간결하게)
 function formatArticleList(articles) {
     if (!articles || articles.length === 0) {
         return '';
     }
+    
+    // 각 카테고리별로 최대 50개씩만 사용 (토큰 제한 방지)
+    const MAX_ARTICLES_PER_CATEGORY = 50;
     
     let formatted = '=== 수집된 기사 목록 ===\n\n';
     
@@ -642,18 +645,18 @@ function formatArticleList(articles) {
         byCategory[article.category].push(article);
     });
     
-    // 카테고리별로 출력
+    // 카테고리별로 출력 (각 카테고리 최대 50개)
     for (const [category, categoryArticles] of Object.entries(byCategory)) {
-        formatted += `[${category}]\n`;
-        categoryArticles.forEach((article, index) => {
-            formatted += `${index + 1}. 제목: ${article.title}\n`;
-            formatted += `   URL: ${article.url}\n`;
-            formatted += `   발행일: ${article.pubDate}\n`;
-            if (article.description) {
-                formatted += `   요약: ${article.description}\n`;
-            }
-            formatted += '\n';
+        const limitedArticles = categoryArticles.slice(0, MAX_ARTICLES_PER_CATEGORY);
+        const totalCount = categoryArticles.length;
+        
+        formatted += `[${category}] (총 ${totalCount}건, 여기서는 ${limitedArticles.length}건 표시)\n`;
+        limitedArticles.forEach((article, index) => {
+            // 간결하게: 제목과 URL만 포함 (요약 제거)
+            formatted += `${index + 1}. ${article.title}\n`;
+            formatted += `   ${article.url}\n`;
         });
+        formatted += '\n';
     }
     
     return formatted;

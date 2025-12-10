@@ -97,7 +97,7 @@ const DEFAULT_PROMPT_TEMPLATE = `당신의 역할:
 const STORAGE_KEY_DEFAULTS = 'newsClipping_defaults';
 const STORAGE_KEY_INITIAL = 'newsClipping_initial';
 const STORAGE_KEY_VERSION = 'newsClipping_version';
-const CURRENT_VERSION = '2.0.0'; // 기본값 업데이트 시 버전 증가
+const CURRENT_VERSION = '2.1.0'; // 기본값 업데이트 시 버전 증가
 
 // 초기 기본값
 const INITIAL_DEFAULTS = {
@@ -186,8 +186,19 @@ const INITIAL_DEFAULTS = {
 - 오직 최종 브리핑 결과만 출력합니다.
 - 사용자가 별도로 지시하지 않는 한, 각 뉴스 상세페이지의 기사내용은 원문의 내용을 충분히 전달할수 있도록 작성합니다.
 - 각 기사의 상세 페이지에 기사 발행일자를 명시하지 않아도 되지만, 반드시 기준_날짜에 발행된 기사만 사용하세요.`,
-    articleList: ""
+    articleList: "",
+    naverKeywords: {
+        korail: '코레일유통, 스토리웨이, 역사 상업시설, 코레일 역세권, 코레일 상업시설',
+        rail: '코레일, KTX, SRT, GTX, 도시철도, 철도 노선, 철도 안전, 역세권 개발, 철도 정책, 국가철도공단, SR, 철도 파업, 철도 사고',
+        subsidiary: '코레일관광개발, 코레일네트웍스, 코레일테크, 코레일 지역본부',
+        gov: '기재부, 국토부, SOC 투자, 역세권 규제, 공공자산, 물가 정책, 배송 정책, 노동 정책',
+        retail: '편의점, 도시락, 간편식, 역세권 상권, K-푸드, K-스낵, 캐릭터 콜라보, 유통 트렌드, 소비 트렌드, F&B, 프랜차이즈'
+    }
 };
+
+function getTodayString() {
+    return new Date().toISOString().split('T')[0];
+}
 
 // 기본값 로드
 function loadDefaults() {
@@ -243,7 +254,14 @@ function saveDefaults() {
         categoryRule: document.getElementById('categoryRuleInput').value,
         selectionPrinciple: document.getElementById('selectionPrincipleInput').value,
         outputFormat: document.getElementById('outputFormatInput').value,
-        articleList: document.getElementById('articleListInput').value
+        articleList: document.getElementById('articleListInput').value,
+        naverKeywords: {
+            korail: document.getElementById('keywordKorail')?.value || '',
+            rail: document.getElementById('keywordRail')?.value || '',
+            subsidiary: document.getElementById('keywordSubsidiary')?.value || '',
+            gov: document.getElementById('keywordGov')?.value || '',
+            retail: document.getElementById('keywordRetail')?.value || ''
+        }
     };
     localStorage.setItem(STORAGE_KEY_DEFAULTS, JSON.stringify(defaults));
     alert('기본값이 저장되었습니다.\n\n⚠️ 참고: 저장된 값은 현재 브라우저에만 저장되며, 다른 PC나 브라우저에서는 적용되지 않습니다.');
@@ -257,7 +275,7 @@ function resetDefaults() {
         localStorage.setItem(STORAGE_KEY_VERSION, CURRENT_VERSION);
         
         // UI에 서버 배포 기준 최신 기본값 적용
-        document.getElementById('dateInput').value = INITIAL_DEFAULTS.date;
+        document.getElementById('dateInput').value = getTodayString();
         document.getElementById('headerInput').value = INITIAL_DEFAULTS.header || '';
         document.getElementById('basicSettingInput').value = INITIAL_DEFAULTS.basicSetting || '';
         document.getElementById('categoryDefinitionInput').value = INITIAL_DEFAULTS.categoryDefinition || '';
@@ -265,6 +283,13 @@ function resetDefaults() {
         document.getElementById('selectionPrincipleInput').value = INITIAL_DEFAULTS.selectionPrinciple || '';
         document.getElementById('outputFormatInput').value = INITIAL_DEFAULTS.outputFormat || '';
         document.getElementById('articleListInput').value = INITIAL_DEFAULTS.articleList || '';
+        if (document.getElementById('keywordKorail')) {
+            document.getElementById('keywordKorail').value = INITIAL_DEFAULTS.naverKeywords.korail || '';
+            document.getElementById('keywordRail').value = INITIAL_DEFAULTS.naverKeywords.rail || '';
+            document.getElementById('keywordSubsidiary').value = INITIAL_DEFAULTS.naverKeywords.subsidiary || '';
+            document.getElementById('keywordGov').value = INITIAL_DEFAULTS.naverKeywords.gov || '';
+            document.getElementById('keywordRetail').value = INITIAL_DEFAULTS.naverKeywords.retail || '';
+        }
         
         // 주의: STORAGE_KEY_DEFAULTS는 업데이트하지 않음 (사용자가 저장한 프롬프트 설정값 유지)
         // 초기화 버튼은 서버 배포 기준 초기값으로 UI만 되돌림
@@ -311,8 +336,8 @@ function applyDefaults() {
         
         // 서버 배포 기준 최신 기본값을 바로 UI에 적용
         const defaults = INITIAL_DEFAULTS;
-        const today = new Date().toISOString().split('T')[0];
-        const dateValue = defaults.date || today;
+        const today = getTodayString();
+        const dateValue = today;
         
         document.getElementById('dateInput').value = dateValue;
         
@@ -329,13 +354,20 @@ function applyDefaults() {
         document.getElementById('selectionPrincipleInput').value = defaults.selectionPrinciple || '';
         document.getElementById('outputFormatInput').value = defaults.outputFormat || '';
         document.getElementById('articleListInput').value = defaults.articleList || '';
+        if (document.getElementById('keywordKorail')) {
+            document.getElementById('keywordKorail').value = defaults.naverKeywords.korail || '';
+            document.getElementById('keywordRail').value = defaults.naverKeywords.rail || '';
+            document.getElementById('keywordSubsidiary').value = defaults.naverKeywords.subsidiary || '';
+            document.getElementById('keywordGov').value = defaults.naverKeywords.gov || '';
+            document.getElementById('keywordRetail').value = defaults.naverKeywords.retail || '';
+        }
         return; // 여기서 종료
     }
     
     // 버전이 같으면 저장된 값 사용 (하지만 내용 검증은 loadDefaults에서 수행)
     const defaults = loadDefaults();
-    const today = new Date().toISOString().split('T')[0];
-    const dateValue = defaults.date || today;
+    const today = getTodayString();
+    const dateValue = today;
     
     document.getElementById('dateInput').value = dateValue;
     
@@ -352,6 +384,13 @@ function applyDefaults() {
     document.getElementById('selectionPrincipleInput').value = defaults.selectionPrinciple || '';
     document.getElementById('outputFormatInput').value = defaults.outputFormat || '';
     document.getElementById('articleListInput').value = defaults.articleList || '';
+    if (document.getElementById('keywordKorail')) {
+        document.getElementById('keywordKorail').value = defaults.naverKeywords?.korail || '';
+        document.getElementById('keywordRail').value = defaults.naverKeywords?.rail || '';
+        document.getElementById('keywordSubsidiary').value = defaults.naverKeywords?.subsidiary || '';
+        document.getElementById('keywordGov').value = defaults.naverKeywords?.gov || '';
+        document.getElementById('keywordRetail').value = defaults.naverKeywords?.retail || '';
+    }
 }
 
 // Perplexity API 호출
@@ -446,6 +485,9 @@ function buildPrompt() {
         prompt += `- 기사_목록의 기사 중 기준_날짜(${date})에 발행된 것만 선별하여 사용하세요.\n`;
         prompt += `- 기사_목록에 기사가 부족한 경우, 해당 카테고리는 비워두거나 기사 수를 줄이세요. 새로운 기사를 만들어내지 마세요.\n`;
         prompt += `- 할루시네이션(존재하지 않는 기사 생성)을 절대 하지 마세요.\n`;
+        prompt += `- 기사_목록 내에서도 제목/URL이 동일한 중복 기사는 하나만 사용하세요.\n`;
+        prompt += `- 추가 뉴스 검색을 하지 마세요. 주어진 기사 목록만 사용하세요.\n`;
+        prompt += `- 기사 목록에는 언론사명이 포함되지 않을 수 있습니다. 각 URL을 보고 실제 한글 언론사명을 추론하여 "제목 (언론사)" 형태로 표기하세요.\n`;
     } else {
         prompt += `3) 기사_목록 : 제공되지 않음 (웹 검색 도구를 활용해 직접 뉴스를 수집해주세요)\n`;
         prompt += `⚠️ **중요**: 웹 검색 시 반드시 기준_날짜(${date})에 발행된 기사만 검색하고 선별하세요.\n`;
@@ -512,17 +554,47 @@ function updateProgress(step, message, percentage) {
     progressText.textContent = message;
 }
 
+// 키워드 문자열 파싱 (쉼표/줄바꿈)
+function parseKeywordString(str) {
+    if (!str) return [];
+    return str.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+}
+
+function getCustomKeywords() {
+    return {
+        korail: parseKeywordString(document.getElementById('keywordKorail')?.value || ''),
+        rail: parseKeywordString(document.getElementById('keywordRail')?.value || ''),
+        subsidiary: parseKeywordString(document.getElementById('keywordSubsidiary')?.value || ''),
+        gov: parseKeywordString(document.getElementById('keywordGov')?.value || ''),
+        retail: parseKeywordString(document.getElementById('keywordRetail')?.value || '')
+    };
+}
+
+// 기사 중복 제거 (제목+URL 기준)
+function dedupArticles(articles) {
+    if (!articles) return [];
+    const map = new Map();
+    const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    return articles.filter(a => {
+        const key = `${norm(a.title)}|${(a.url || '').split('#')[0]}`;
+        if (map.has(key)) return false;
+        map.set(key, true);
+        return true;
+    });
+}
+
 // 기사 수집
 async function collectArticles(date) {
     updateProgress(0, '네이버 뉴스에서 기사를 수집하고 있습니다...', 10);
     
     try {
+        const customKeywords = getCustomKeywords();
         const response = await fetch(`${API_BASE_URL}/api/news-clipping/collect-articles`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ date })
+            body: JSON.stringify({ date, customKeywords })
         });
 
         if (!response.ok) {
@@ -568,7 +640,6 @@ function formatArticleList(articles) {
         formatted += `[${category}]\n`;
         categoryArticles.forEach((article, index) => {
             formatted += `${index + 1}. 제목: ${article.title}\n`;
-            formatted += `   언론사: ${article.publisher}\n`;
             formatted += `   URL: ${article.url}\n`;
             formatted += `   발행일: ${article.pubDate}\n`;
             if (article.description) {
@@ -608,16 +679,17 @@ async function generateContent() {
     try {
         // 1단계: 기사 수집
         const collectedArticles = await collectArticles(date);
+        const dedupedArticles = collectedArticles ? dedupArticles(collectedArticles) : null;
         
         // 2단계: AI 생성
         updateProgress(1, 'AI가 뉴스 클리핑을 생성하고 있습니다...', 60);
         
         // 프롬프트 생성 (수집된 기사 포함)
-        const articleListText = collectedArticles ? formatArticleList(collectedArticles) : '';
+        const articleListText = dedupedArticles ? formatArticleList(dedupedArticles) : '';
         
         // 기사 목록을 임시로 textarea에 설정 (buildPrompt에서 사용)
         const originalArticleList = document.getElementById('articleListInput').value;
-        if (collectedArticles && articleListText) {
+        if (dedupedArticles && articleListText) {
             document.getElementById('articleListInput').value = articleListText;
         }
         

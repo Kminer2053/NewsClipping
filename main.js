@@ -439,8 +439,13 @@ function buildPrompt() {
     prompt += `2) 기준_날짜 : ${date}\n`;
     prompt += `⚠️ **중요**: 기준_날짜는 ${date}입니다. 반드시 이 날짜에 발행된 기사만 선별하세요. 다른 날짜의 기사는 절대 포함하지 마세요. 기사의 발행일자를 반드시 확인하고, 기준_날짜와 일치하지 않는 기사는 제외하세요.\n`;
     if (articleList) {
-        prompt += `3) 기사_목록 : 외부 시스템(크롤러, Perplexity 등)이 미리 수집한 기사 리스트\n${articleList}\n`;
-        prompt += `⚠️ **중요**: 기사_목록에서 제공된 기사도 반드시 기준_날짜(${date})에 발행된 것만 사용하세요. 다른 날짜의 기사는 제외하세요.\n`;
+        prompt += `3) 기사_목록 : 외부 시스템(크롤러, 네이버 뉴스 API 등)이 미리 수집한 기사 리스트\n${articleList}\n`;
+        prompt += `\n⚠️ **절대적 원칙 - 기사 목록 사용**:\n`;
+        prompt += `- 위에 제공된 기사_목록에 있는 기사만 사용하여 뉴스 브리핑을 작성하세요.\n`;
+        prompt += `- 기사_목록에 없는 기사를 절대 생성하거나 추가하지 마세요.\n`;
+        prompt += `- 기사_목록의 기사 중 기준_날짜(${date})에 발행된 것만 선별하여 사용하세요.\n`;
+        prompt += `- 기사_목록에 기사가 부족한 경우, 해당 카테고리는 비워두거나 기사 수를 줄이세요. 새로운 기사를 만들어내지 마세요.\n`;
+        prompt += `- 할루시네이션(존재하지 않는 기사 생성)을 절대 하지 마세요.\n`;
     } else {
         prompt += `3) 기사_목록 : 제공되지 않음 (웹 검색 도구를 활용해 직접 뉴스를 수집해주세요)\n`;
         prompt += `⚠️ **중요**: 웹 검색 시 반드시 기준_날짜(${date})에 발행된 기사만 검색하고 선별하세요.\n`;
@@ -472,6 +477,110 @@ function buildPrompt() {
     return prompt;
 }
 
+// 진행 상태 업데이트
+function updateProgress(step, message, percentage) {
+    const progressCard = document.getElementById('progressCard');
+    const progressSteps = document.getElementById('progressSteps');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    progressCard.style.display = 'block';
+    
+    // 단계별 상태 표시
+    const steps = [
+        { id: 'collect', name: '기사 수집', icon: 'fa-search' },
+        { id: 'generate', name: 'AI 생성', icon: 'fa-magic' }
+    ];
+    
+    let stepsHtml = '';
+    steps.forEach((s, index) => {
+        const isActive = index === step;
+        const isCompleted = index < step;
+        const statusClass = isCompleted ? 'text-success' : (isActive ? 'text-primary' : 'text-muted');
+        const iconClass = isCompleted ? 'fa-check-circle' : (isActive ? 'fa-spinner fa-spin' : s.icon);
+        
+        stepsHtml += `
+            <div class="d-flex align-items-center mb-2">
+                <i class="fas ${iconClass} ${statusClass} me-2"></i>
+                <span class="${statusClass}">${s.name}</span>
+            </div>
+        `;
+    });
+    
+    progressSteps.innerHTML = stepsHtml;
+    progressBar.style.width = `${percentage}%`;
+    progressText.textContent = message;
+}
+
+// 기사 수집
+async function collectArticles(date) {
+    updateProgress(0, '네이버 뉴스에서 기사를 수집하고 있습니다...', 10);
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/news-clipping/collect-articles`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ date })
+        });
+
+        if (!response.ok) {
+            throw new Error(`기사 수집 실패: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || '기사 수집 실패');
+        }
+
+        updateProgress(0, `기사 수집 완료: 총 ${data.totalArticles}건 (${Object.entries(data.articlesByCategory).map(([cat, arts]) => `${cat}: ${arts.length}건`).join(', ')})`, 50);
+        
+        return data.articles;
+    } catch (error) {
+        console.error('기사 수집 오류:', error);
+        // 기사 수집 실패해도 계속 진행 (기존 방식으로 fallback)
+        updateProgress(0, '기사 수집 실패 - 기존 방식으로 진행합니다.', 50);
+        return null;
+    }
+}
+
+// 기사 리스트를 프롬프트 형식으로 변환
+function formatArticleList(articles) {
+    if (!articles || articles.length === 0) {
+        return '';
+    }
+    
+    let formatted = '=== 수집된 기사 목록 ===\n\n';
+    
+    // 카테고리별로 그룹화
+    const byCategory = {};
+    articles.forEach(article => {
+        if (!byCategory[article.category]) {
+            byCategory[article.category] = [];
+        }
+        byCategory[article.category].push(article);
+    });
+    
+    // 카테고리별로 출력
+    for (const [category, categoryArticles] of Object.entries(byCategory)) {
+        formatted += `[${category}]\n`;
+        categoryArticles.forEach((article, index) => {
+            formatted += `${index + 1}. 제목: ${article.title}\n`;
+            formatted += `   언론사: ${article.publisher}\n`;
+            formatted += `   URL: ${article.url}\n`;
+            formatted += `   발행일: ${article.pubDate}\n`;
+            if (article.description) {
+                formatted += `   요약: ${article.description}\n`;
+            }
+            formatted += '\n';
+        });
+    }
+    
+    return formatted;
+}
+
 // 자료 생성
 async function generateContent() {
     const date = document.getElementById('dateInput').value;
@@ -490,14 +599,37 @@ async function generateContent() {
         return;
     }
 
-    // 로딩 표시
-    document.getElementById('loadingSpinner').style.display = 'block';
+    // UI 초기화
+    document.getElementById('progressCard').style.display = 'block';
+    document.getElementById('loadingSpinner').style.display = 'none';
     document.getElementById('resultCard').style.display = 'none';
     document.getElementById('generateBtn').disabled = true;
 
     try {
+        // 1단계: 기사 수집
+        const collectedArticles = await collectArticles(date);
+        
+        // 2단계: AI 생성
+        updateProgress(1, 'AI가 뉴스 클리핑을 생성하고 있습니다...', 60);
+        
+        // 프롬프트 생성 (수집된 기사 포함)
+        const articleListText = collectedArticles ? formatArticleList(collectedArticles) : '';
+        
+        // 기사 목록을 임시로 textarea에 설정 (buildPrompt에서 사용)
+        const originalArticleList = document.getElementById('articleListInput').value;
+        if (collectedArticles && articleListText) {
+            document.getElementById('articleListInput').value = articleListText;
+        }
+        
         const prompt = buildPrompt();
+        
+        // 원래 값 복원
+        document.getElementById('articleListInput').value = originalArticleList;
+        
+        updateProgress(1, 'Perplexity API 호출 중...', 80);
         const result = await callPerplexityAPI(prompt);
+        
+        updateProgress(1, '완료!', 100);
         
         // 결과 표시
         displayResult(result);
@@ -505,9 +637,16 @@ async function generateContent() {
         
         // 결과를 전역 변수에 저장 (PDF, 복사 등에서 사용)
         window.currentResult = result;
+        
+        // 진행 상태 카드 숨기기
+        setTimeout(() => {
+            document.getElementById('progressCard').style.display = 'none';
+        }, 2000);
+        
     } catch (error) {
         alert('자료 생성 중 오류가 발생했습니다: ' + error.message);
         console.error(error);
+        document.getElementById('progressCard').style.display = 'none';
     } finally {
         document.getElementById('loadingSpinner').style.display = 'none';
         document.getElementById('generateBtn').disabled = false;

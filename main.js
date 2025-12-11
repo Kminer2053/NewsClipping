@@ -1028,6 +1028,12 @@ function copyKakaoFormat() {
     // 현재 결과에서 기사 파싱 (필터링된 결과 사용 - 이미 선택된 기사만 포함)
     const articles = parseArticlesFromResult(window.currentResult);
     
+    if (articles.length === 0) {
+        console.warn('[카카오톡] 파싱된 기사가 없습니다. 원본 결과를 확인합니다.');
+        alert('기사를 파싱하지 못했습니다. 미리보기에서 기사가 정상적으로 표시되는지 확인해주세요.');
+        return;
+    }
+    
     // 카카오톡 형식으로 변환
     let kakaoText = dateText;
     articles.forEach((article, index) => {
@@ -1319,17 +1325,26 @@ function parseArticlesFromResult(result) {
         // 카테고리 감지 (☐ 코레일유통) - 마크다운 형식도 처리
         const categoryMatch1 = line.match(/^☐\s*\*\*(.+?)\*\*/);  // ☐ **카테고리명**
         const categoryMatch2 = line.match(/^\*\*☐\s*(.+?)\*\*/);  // **☐ 카테고리명**
-        const categoryMatch3 = line.match(/^☐\s*(.+)$/);          // ☐ 카테고리명
+        const categoryMatch3 = line.match(/^☐\s+(.+)$/);          // ☐ 카테고리명 (공백 필수)
+        const categoryMatch4 = line.match(/^☐\s*(.+)$/);          // ☐카테고리명 (공백 없음)
         
         if (categoryMatch1) {
             currentCategory = categoryMatch1[1].trim();
+            console.log('[카테고리 파싱] 매칭1:', currentCategory);
             continue;
         } else if (categoryMatch2) {
             currentCategory = categoryMatch2[1].trim();
+            console.log('[카테고리 파싱] 매칭2:', currentCategory);
             continue;
         } else if (categoryMatch3) {
             // 마크다운 제거
             currentCategory = categoryMatch3[1].replace(/\*\*(.*?)\*\*/g, '$1').trim();
+            console.log('[카테고리 파싱] 매칭3:', currentCategory);
+            continue;
+        } else if (categoryMatch4 && !line.startsWith('○')) {
+            // 마크다운 제거 (○로 시작하는 기사 제외)
+            currentCategory = categoryMatch4[1].replace(/\*\*(.*?)\*\*/g, '$1').trim();
+            console.log('[카테고리 파싱] 매칭4:', currentCategory);
             continue;
         }
         
@@ -1340,7 +1355,8 @@ function parseArticlesFromResult(result) {
             // 주석 표기 제거
             const cleanedLine2 = cleanedLine.replace(/\[\d+\]/g, '');
             
-            const articleMatch = cleanedLine2.match(/^○(.+?)\s*\(([^)]+)\)$/);
+            // 더 유연한 정규식: 괄호 앞 공백 허용, 제목에 쉼표 등 허용
+            const articleMatch = cleanedLine2.match(/^○(.+?)\s*\(([^)]+)\)\s*$/);
             if (articleMatch && currentCategory) {
                 currentTitle = articleMatch[1].trim();
                 currentPublisher = articleMatch[2].trim();
@@ -1353,6 +1369,7 @@ function parseArticlesFromResult(result) {
                     content: [],
                     selected: true // 기본 선택
                 });
+                console.log('[기사 파싱] 성공:', { category: currentCategory, title: currentTitle, publisher: currentPublisher });
             } else if (line.startsWith('○')) {
                 // 파싱 실패한 경우 디버깅
                 console.warn('[기사 파싱] 파싱 실패:', {
@@ -1618,11 +1635,19 @@ function filterResultByArticles(result, selectedArticles) {
                 currentTitle = titleMatch[1].trim();
                 const key = `${currentPublisher}|${currentTitle}`;
                 includeCurrentArticle = selectedMap.has(key);
+                // 제목이 선택된 기사에 포함되면 추가
+                if (includeCurrentArticle) {
+                    filteredLines.push(lines[i]);
+                }
+                continue;
             }
             
             // 현재 기사가 선택된 경우에만 내용 추가
             if (includeCurrentArticle) {
                 filteredLines.push(lines[i]);
+            } else {
+                // 선택되지 않은 기사는 건너뛰기
+                continue;
             }
         }
     }

@@ -738,16 +738,21 @@ async function generateContent() {
         window.currentResult = result;
         
         // 기사 목록 파싱 및 선택 UI 표시
+        console.log('[기사 선택] 원본 결과 일부:', result.substring(0, 500));
         const articles = parseArticlesFromResult(result);
+        console.log('[기사 선택] 파싱된 기사 수:', articles.length);
+        console.log('[기사 선택] 파싱된 기사 목록:', articles);
+        
         if (articles.length > 0) {
             displayArticleSelection(articles);
             document.getElementById('articleSelectionCard').style.display = 'block';
             // 초기에는 선택 UI만 표시, "선택 적용" 버튼 클릭 시 최종 결과 표시
             document.getElementById('resultCard').style.display = 'none';
         } else {
-            // 기사 파싱 실패 시 기존 방식으로 표시
+            console.warn('[기사 선택] 기사 파싱 실패 - 원본 결과 표시');
             displayResult(result);
             document.getElementById('resultCard').style.display = 'block';
+            document.getElementById('articleSelectionCard').style.display = 'none';
         }
         
         // 진행 상태 카드 숨기기
@@ -1271,16 +1276,31 @@ function parseArticlesFromResult(result) {
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         
-        // 카테고리 감지 (☐ 코레일유통)
-        const categoryMatch = line.match(/^☐\s*(.+)$/);
-        if (categoryMatch) {
-            currentCategory = categoryMatch[1];
+        // 카테고리 감지 (☐ 코레일유통) - 마크다운 형식도 처리
+        const categoryMatch1 = line.match(/^☐\s*\*\*(.+?)\*\*/);  // ☐ **카테고리명**
+        const categoryMatch2 = line.match(/^\*\*☐\s*(.+?)\*\*/);  // **☐ 카테고리명**
+        const categoryMatch3 = line.match(/^☐\s*(.+)$/);          // ☐ 카테고리명
+        
+        if (categoryMatch1) {
+            currentCategory = categoryMatch1[1].trim();
+            continue;
+        } else if (categoryMatch2) {
+            currentCategory = categoryMatch2[1].trim();
+            continue;
+        } else if (categoryMatch3) {
+            // 마크다운 제거
+            currentCategory = categoryMatch3[1].replace(/\*\*(.*?)\*\*/g, '$1').trim();
             continue;
         }
         
-        // 요약 페이지 기사 (○기사 제목 (언론사))
+        // 요약 페이지 기사 (○기사 제목 (언론사)) - 마크다운 제거 후 파싱
         if (inSummaryPage && line.startsWith('○')) {
-            const articleMatch = line.match(/^○(.+?)\s*\(([^)]+)\)$/);
+            // 마크다운 볼드체 제거
+            const cleanedLine = line.replace(/\*\*(.*?)\*\*/g, '$1');
+            // 주석 표기 제거
+            const cleanedLine2 = cleanedLine.replace(/\[\d+\]/g, '');
+            
+            const articleMatch = cleanedLine2.match(/^○(.+?)\s*\(([^)]+)\)$/);
             if (articleMatch && currentCategory) {
                 currentTitle = articleMatch[1].trim();
                 currentPublisher = articleMatch[2].trim();
@@ -1292,6 +1312,14 @@ function parseArticlesFromResult(result) {
                     url: null,
                     content: [],
                     selected: true // 기본 선택
+                });
+            } else if (line.startsWith('○')) {
+                // 파싱 실패한 경우 디버깅
+                console.warn('[기사 파싱] 파싱 실패:', {
+                    line: line,
+                    cleanedLine: cleanedLine2,
+                    currentCategory: currentCategory,
+                    articleMatch: articleMatch
                 });
             }
         }

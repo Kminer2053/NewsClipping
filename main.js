@@ -873,6 +873,7 @@ function displayResult(result) {
             
             const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
                 !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
+                !publisherNameOnly.includes('뉴스 상세') && !publisherNameOnly.includes('상세') && 
                 publisherNameOnly.length < 30 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') && 
                 !publisherNameOnly.startsWith('**') && publisherNameOnly !== '---' && !publisherNameOnly.match(/^\(URL/) &&
                 !publisherNameOnly.match(/^https?:\/\//) && !publisherNameOnly.match(/^\(URL 생략/) &&
@@ -1024,6 +1025,44 @@ function copyKakaoFormat() {
         dateText = `${year}년 ${month}월 ${day}일 뉴스입니다.\n\n`;
     }
 
+    // 현재 결과에서 기사 파싱 (필터링된 결과 사용 - 이미 선택된 기사만 포함)
+    const articles = parseArticlesFromResult(window.currentResult);
+    
+    // 카카오톡 형식으로 변환
+    let kakaoText = dateText;
+    articles.forEach((article, index) => {
+        const urlText = article.url ? ` ${article.url}` : '';
+        kakaoText += `${index + 1}. ${article.title} (${article.publisher})${urlText}\n\n`;
+    });
+
+    kakaoText = kakaoText.trim();
+
+    navigator.clipboard.writeText(kakaoText).then(() => {
+        alert('카카오톡 공유자료가 클립보드에 복사되었습니다.');
+    }).catch(err => {
+        console.error('복사 실패:', err);
+        alert('복사에 실패했습니다.');
+    });
+}
+
+// 카카오톡 공유자료 생성 (기존 방식 - 주석 처리)
+function copyKakaoFormat_old() {
+    if (!window.currentResult) {
+        alert('생성된 자료가 없습니다.');
+        return;
+    }
+
+    // 날짜 가져오기
+    const dateInput = document.getElementById('dateInput').value;
+    let dateText = '';
+    if (dateInput) {
+        const date = new Date(dateInput);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        dateText = `${year}년 ${month}월 ${day}일 뉴스입니다.\n\n`;
+    }
+
     // 상세 페이지에서 기사 정보 추출 (언론사명, 기사 제목, URL)
     const lines = window.currentResult.split('\n');
     let inDetailPage = false;
@@ -1096,6 +1135,7 @@ function copyKakaoFormat() {
             
             const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
                 !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
+                !publisherNameOnly.includes('뉴스 상세') && !publisherNameOnly.includes('상세') && 
                 publisherNameOnly.length < 30 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') &&
                 !publisherNameOnly.startsWith('**') && publisherNameOnly !== '---' && !publisherNameOnly.match(/^\(URL/) &&
                 !publisherNameOnly.match(/^https?:\/\//) && !publisherNameOnly.match(/^\(URL 생략/) &&
@@ -1537,6 +1577,7 @@ function filterResultByArticles(result, selectedArticles) {
             const isMixedPublisher = publisherLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
             const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
                 !publisherLine.includes('주요') && !publisherLine.includes('브리핑') && 
+                !publisherLine.includes('뉴스 상세') && !publisherLine.includes('상세') && 
                 publisherLine.length < 30 && !publisherLine.startsWith('☐') && !publisherLine.startsWith('○') &&
                 !publisherLine.startsWith('**') && publisherLine !== '---' && !publisherLine.match(/^\(URL/) &&
                 !publisherLine.match(/^https?:\/\//) && !publisherLine.match(/^\(URL 생략/) &&
@@ -1544,7 +1585,7 @@ function filterResultByArticles(result, selectedArticles) {
             
             if (isPublisherName) {
                 // 이전 기사 처리 완료
-                if (includeCurrentArticle && currentPublisher) {
+                if (includeCurrentArticle && currentPublisher && currentTitle) {
                     // 이전 기사 내용은 이미 추가됨
                 }
                 
@@ -1557,6 +1598,9 @@ function filterResultByArticles(result, selectedArticles) {
                 const titleMatch = nextLine.match(/\*\*(.+?)\*\*/);
                 if (titleMatch) {
                     currentTitle = titleMatch[1].trim();
+                } else if (nextLine && nextLine.length > 10 && !nextLine.match(/^https?:\/\//) && !nextLine.startsWith('URL:')) {
+                    // 볼드체가 없으면 다음 줄이 제목일 수 있음
+                    currentTitle = nextLine;
                 }
                 
                 const key = `${currentPublisher}|${currentTitle || ''}`;
@@ -1566,6 +1610,14 @@ function filterResultByArticles(result, selectedArticles) {
                     filteredLines.push(lines[i]);
                 }
                 continue;
+            }
+            
+            // 제목 추출 (볼드체)
+            const titleMatch = line.match(/\*\*(.+?)\*\*/);
+            if (titleMatch && currentPublisher && !currentTitle) {
+                currentTitle = titleMatch[1].trim();
+                const key = `${currentPublisher}|${currentTitle}`;
+                includeCurrentArticle = selectedMap.has(key);
             }
             
             // 현재 기사가 선택된 경우에만 내용 추가

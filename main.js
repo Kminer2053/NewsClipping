@@ -1114,6 +1114,29 @@ function copyKakaoFormat() {
             continue;
         }
         
+        // 상세 페이지 자동 감지: 요약 페이지에서 언론사명 패턴이 나오면 상세 페이지로 전환
+        if (!inDetailPage && i > 5) {
+            let publisherLine = line.replace(/\s*\([^)]*\)\s*$/, '').trim();
+            const hasNumber = publisherLine.match(/^\d+\.\s*(.+)$/);
+            if (hasNumber) publisherLine = hasNumber[1];
+            
+            const isKoreanPublisher = publisherLine.match(/^[가-힣][가-힣\s\d\w]*$/);
+            const isEnglishPublisher = publisherLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            const isEnglishWithSpace = publisherLine.match(/^[A-Z][A-Z0-9\s]{1,15}$/); // 공백 포함 영어 (예: "SBS Biz")
+            const isMixedPublisher = publisherLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
+            const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher || isEnglishWithSpace || isMixedPublisher) && 
+                !publisherLine.includes('주요') && !publisherLine.includes('브리핑') && 
+                !publisherLine.includes('뉴스 상세') && !publisherLine.includes('상세') && 
+                publisherLine.length < 30 && !publisherLine.startsWith('☐') && !publisherLine.startsWith('○') && 
+                !publisherLine.startsWith('**') && publisherLine !== '---' && !publisherLine.match(/^\(URL/) &&
+                !publisherLine.match(/^https?:\/\//) && !publisherLine.match(/^\(URL 생략/);
+            
+            if (isPublisherNameForDetection) {
+                console.log('[카카오톡] 상세 페이지 자동 감지:', { publisher: publisherLine, lineNumber: i });
+                inDetailPage = true;
+            }
+        }
+        
         if (inDetailPage) {
             // 언론사명 감지
             let publisherLine = line.replace(/\s*\([^)]*\)\s*$/, '').trim();

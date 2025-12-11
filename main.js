@@ -1822,32 +1822,73 @@ function filterResultByArticles(result, selectedArticles) {
                     console.log('[필터링] 제목 없음, publisher만으로 매칭 시도:', { publisher: currentPublisher });
                 }
                 
-                // 제목이 없거나 매칭 실패 시 publisher만으로 매칭 시도 (정규화 비교)
-                if (!includeCurrentArticle) {
+                // 제목이 없거나 매칭 실패 시 publisher+제목 유사도로 매칭 시도 (정규화 비교)
+                // 단, 제목이 추출된 경우에만 매칭 (잘못된 기사 포함 방지)
+                if (!includeCurrentArticle && currentTitle) {
                     const normalizedPublisher = normalizeText(currentPublisher);
-                    console.log('[필터링] Publisher만으로 매칭 시도:', { 
+                    const normalizedCurrentTitle = normalizeText(currentTitle);
+                    
+                    console.log('[필터링] Publisher+제목 유사도 매칭 시도:', { 
                         publisher: currentPublisher, 
+                        title: currentTitle,
                         normalizedPublisher,
-                        selectedMapSize: selectedMapNormalized.size
+                        normalizedCurrentTitle
                     });
+                    
+                    // Publisher가 일치하고 제목이 유사한 기사 찾기
+                    let bestMatch = null;
+                    let bestScore = 0;
+                    
                     for (const [normalizedKey, article] of selectedMapNormalized.entries()) {
                         if (normalizedKey.startsWith(`${normalizedPublisher}|`)) {
-                            includeCurrentArticle = true;
-                            currentTitle = article.title; // 제목도 설정
-                            console.log('[필터링] Publisher만으로 매칭 성공:', { 
-                                publisher: currentPublisher, 
-                                matchedKey: normalizedKey,
-                                matchedTitle: article.title 
-                            });
-                            break;
+                            const articleTitleNormalized = normalizeText(article.title);
+                            
+                            // 제목이 완전히 일치하는 경우
+                            if (articleTitleNormalized === normalizedCurrentTitle) {
+                                bestMatch = article;
+                                bestScore = 100; // 최고 점수
+                                break;
+                            }
+                            
+                            // 제목이 한쪽이 다른 쪽을 포함하는 경우 (유사도 계산)
+                            if (articleTitleNormalized.includes(normalizedCurrentTitle) || 
+                                normalizedCurrentTitle.includes(articleTitleNormalized)) {
+                                // 공통 부분의 길이로 점수 계산
+                                const commonLength = Math.min(articleTitleNormalized.length, normalizedCurrentTitle.length);
+                                const maxLength = Math.max(articleTitleNormalized.length, normalizedCurrentTitle.length);
+                                const score = (commonLength / maxLength) * 100;
+                                
+                                if (score > bestScore && score >= 50) { // 50% 이상 유사도만 매칭
+                                    bestScore = score;
+                                    bestMatch = article;
+                                }
+                            }
                         }
                     }
-                    if (!includeCurrentArticle) {
-                        console.warn('[필터링] 매칭 실패:', { 
+                    
+                    if (bestMatch) {
+                        includeCurrentArticle = true;
+                        currentTitle = bestMatch.title; // 정확한 제목으로 업데이트
+                        console.log('[필터링] Publisher+제목 유사도 매칭 성공:', { 
+                            publisher: currentPublisher, 
+                            matchedTitle: bestMatch.title,
+                            score: bestScore
+                        });
+                    } else {
+                        console.warn('[필터링] Publisher+제목 유사도 매칭 실패:', { 
                             publisher: currentPublisher,
-                            availablePublishers: Array.from(selectedMapNormalized.values()).map(a => a.publisher).slice(0, 10)
+                            title: currentTitle,
+                            availableTitles: Array.from(selectedMapNormalized.values())
+                                .filter(a => normalizeText(a.publisher) === normalizedPublisher)
+                                .map(a => a.title)
                         });
                     }
+                } else if (!includeCurrentArticle && !currentTitle) {
+                    // 제목이 없으면 매칭하지 않음 (잘못된 기사 포함 방지)
+                    console.warn('[필터링] 매칭 실패 (제목 없음):', { 
+                        publisher: currentPublisher,
+                        availablePublishers: Array.from(selectedMapNormalized.values()).map(a => a.publisher).slice(0, 10)
+                    });
                 }
                 
                 if (includeCurrentArticle) {
@@ -1879,18 +1920,65 @@ function filterResultByArticles(result, selectedArticles) {
                     }
                 }
                 
-                // 매칭 실패 시 publisher만으로 매칭 시도 (정규화 비교)
+                // 매칭 실패 시 publisher+제목 유사도로 매칭 시도 (정규화 비교)
                 if (!includeCurrentArticle) {
                     const normalizedPublisher = normalizeText(currentPublisher);
+                    const normalizedCurrentTitle = normalizeText(currentTitle);
+                    
+                    console.log('[필터링] Publisher+제목 유사도 매칭 시도 (제목 추출 후):', { 
+                        publisher: currentPublisher, 
+                        title: currentTitle,
+                        normalizedPublisher,
+                        normalizedCurrentTitle
+                    });
+                    
+                    // Publisher가 일치하고 제목이 유사한 기사 찾기
+                    let bestMatch = null;
+                    let bestScore = 0;
+                    
                     for (const [normalizedMapKey, article] of selectedMapNormalized.entries()) {
                         if (normalizedMapKey.startsWith(`${normalizedPublisher}|`)) {
-                            includeCurrentArticle = true;
-                            console.log('[필터링] Publisher만으로 매칭 (제목 추출 후):', { 
-                                publisher: currentPublisher, 
-                                matchedTitle: article.title 
-                            });
-                            break;
+                            const articleTitleNormalized = normalizeText(article.title);
+                            
+                            // 제목이 완전히 일치하는 경우
+                            if (articleTitleNormalized === normalizedCurrentTitle) {
+                                bestMatch = article;
+                                bestScore = 100; // 최고 점수
+                                break;
+                            }
+                            
+                            // 제목이 한쪽이 다른 쪽을 포함하는 경우 (유사도 계산)
+                            if (articleTitleNormalized.includes(normalizedCurrentTitle) || 
+                                normalizedCurrentTitle.includes(articleTitleNormalized)) {
+                                // 공통 부분의 길이로 점수 계산
+                                const commonLength = Math.min(articleTitleNormalized.length, normalizedCurrentTitle.length);
+                                const maxLength = Math.max(articleTitleNormalized.length, normalizedCurrentTitle.length);
+                                const score = (commonLength / maxLength) * 100;
+                                
+                                if (score > bestScore && score >= 50) { // 50% 이상 유사도만 매칭
+                                    bestScore = score;
+                                    bestMatch = article;
+                                }
+                            }
                         }
+                    }
+                    
+                    if (bestMatch) {
+                        includeCurrentArticle = true;
+                        currentTitle = bestMatch.title; // 정확한 제목으로 업데이트
+                        console.log('[필터링] Publisher+제목 유사도 매칭 성공 (제목 추출 후):', { 
+                            publisher: currentPublisher, 
+                            matchedTitle: bestMatch.title,
+                            score: bestScore
+                        });
+                    } else {
+                        console.warn('[필터링] Publisher+제목 유사도 매칭 실패 (제목 추출 후):', { 
+                            publisher: currentPublisher,
+                            title: currentTitle,
+                            availableTitles: Array.from(selectedMapNormalized.values())
+                                .filter(a => normalizeText(a.publisher) === normalizedPublisher)
+                                .map(a => a.title)
+                        });
                     }
                 }
                 

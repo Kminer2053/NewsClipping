@@ -97,7 +97,7 @@ const DEFAULT_PROMPT_TEMPLATE = `당신의 역할:
 const STORAGE_KEY_DEFAULTS = 'newsClipping_defaults';
 const STORAGE_KEY_INITIAL = 'newsClipping_initial';
 const STORAGE_KEY_VERSION = 'newsClipping_version';
-const CURRENT_VERSION = '2.1.3'; // 기본값 업데이트 시 버전 증가
+const CURRENT_VERSION = '2.2.0'; // 기본값 업데이트 시 버전 증가
 
 // 초기 기본값
 const INITIAL_DEFAULTS = {
@@ -129,7 +129,7 @@ const INITIAL_DEFAULTS = {
 
 - **날짜 확인 필수**: 모든 기사를 선별할 때 반드시 기사의 실제 발행일자를 확인하세요. 기준_날짜와 다른 날짜의 기사는 아무리 관련성이 높아도 포함하지 마세요.
 
-- 뉴스리스트의 제목을 확인해서 같은 소재를 다룬 기사는 기사원문의 내용확인이 가능하고 보도일자가 빠른 언론사의 기사로 1건만 선택합니다.
+- 뉴스리스트의 제목을 확인해서 같은 소재를 다룬 기사는 기사원문의 내용확인이 가능하고 인지도가 높은 언론사의 기사로 1건만 선택합니다.
 
 - 선택된 기사의 원문을 충실하게 반영하도록 기사내용을 요약하며, 기사내용 요약 중 중복기사로 확인될 경우 해당기사는 뉴스브리핑에 포함되지 않도록 한다.
 
@@ -734,12 +734,21 @@ async function generateContent() {
         
         updateProgress(1, '완료!', 100);
         
-        // 결과 표시
-        displayResult(result);
-        document.getElementById('resultCard').style.display = 'block';
-        
         // 결과를 전역 변수에 저장 (PDF, 복사 등에서 사용)
         window.currentResult = result;
+        
+        // 기사 목록 파싱 및 선택 UI 표시
+        const articles = parseArticlesFromResult(result);
+        if (articles.length > 0) {
+            displayArticleSelection(articles);
+            document.getElementById('articleSelectionCard').style.display = 'block';
+            // 초기에는 선택 UI만 표시, "선택 적용" 버튼 클릭 시 최종 결과 표시
+            document.getElementById('resultCard').style.display = 'none';
+        } else {
+            // 기사 파싱 실패 시 기존 방식으로 표시
+            displayResult(result);
+            document.getElementById('resultCard').style.display = 'block';
+        }
         
         // 진행 상태 카드 숨기기
         setTimeout(() => {
@@ -853,8 +862,10 @@ function displayResult(result) {
             // 한글로 시작하는 언론사명 또는 영문 대문자만으로 구성된 언론사명 (KBS, YTN 등)
             const isKoreanPublisher = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/);
             const isEnglishPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]{1,10}$/); // 영문 대문자만, 2-11자
+            // 영문+한글 조합 (예: "HBN프레스", "YTN뉴스")
+            const isMixedPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
             
-            const isPublisherName = (isKoreanPublisher || isEnglishPublisher) && 
+            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
                 !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
                 publisherNameOnly.length < 30 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') && 
                 !publisherNameOnly.startsWith('**') && publisherNameOnly !== '---' && !publisherNameOnly.match(/^\(URL/) &&
@@ -1039,8 +1050,10 @@ function copyKakaoFormat() {
             // 한글로 시작하는 언론사명 또는 영문 대문자만으로 구성된 언론사명
             const isKoreanPublisher = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/);
             const isEnglishPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            // 영문+한글 조합 (예: "HBN프레스", "YTN뉴스")
+            const isMixedPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
             
-            const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher) && 
+            const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
                 !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
                 publisherNameOnly.length < 30 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') &&
                 !publisherNameOnly.startsWith('**') && publisherNameOnly !== '---' && !publisherNameOnly.match(/^\(URL/) &&
@@ -1072,8 +1085,10 @@ function copyKakaoFormat() {
             // 한글로 시작하는 언론사명 또는 영문 대문자만으로 구성된 언론사명
             const isKoreanPublisher = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/);
             const isEnglishPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            // 영문+한글 조합 (예: "HBN프레스", "YTN뉴스")
+            const isMixedPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
             
-            const isPublisherName = (isKoreanPublisher || isEnglishPublisher) && 
+            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
                 !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
                 publisherNameOnly.length < 30 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') &&
                 !publisherNameOnly.startsWith('**') && publisherNameOnly !== '---' && !publisherNameOnly.match(/^\(URL/) &&

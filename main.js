@@ -1624,6 +1624,12 @@ function displayArticleSelection(articles) {
 
 // 선택된 기사만으로 결과 필터링
 function filterResultByArticles(result, selectedArticles) {
+    // 텍스트 정규화 함수 (공백 정리, 소문자 변환)
+    function normalizeText(text) {
+        if (!text) return '';
+        return text.replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+    
     const lines = result.split('\n');
     const filteredLines = [];
     let inSummaryPage = true;
@@ -1631,11 +1637,14 @@ function filterResultByArticles(result, selectedArticles) {
     let currentTitle = null;
     let includeCurrentArticle = false;
     
-    // 선택된 기사 맵 생성 (빠른 검색용)
+    // 선택된 기사 맵 생성 (빠른 검색용) - 정규화된 키 사용
     const selectedMap = new Map();
+    const selectedMapNormalized = new Map(); // 정규화된 키 맵
     selectedArticles.forEach(article => {
         const key = `${article.publisher}|${article.title}`;
+        const normalizedKey = normalizeText(key);
         selectedMap.set(key, article);
+        selectedMapNormalized.set(normalizedKey, article);
     });
     
     for (let i = 0; i < lines.length; i++) {
@@ -1654,13 +1663,14 @@ function filterResultByArticles(result, selectedArticles) {
                     if (nextLine.match(/^☐\s*/) || nextLine === '---' || nextLine.startsWith('* 각 뉴스 상세 페이지')) {
                         break;
                     }
-                    // 기사 항목 확인
+                    // 기사 항목 확인 (정규화 비교)
                     const articleMatch = nextLine.match(/^○(.+?)\s*\(([^)]+)\)$/);
                     if (articleMatch) {
                         const title = articleMatch[1].trim();
                         const publisher = articleMatch[2].trim();
                         const key = `${publisher}|${title}`;
-                        if (selectedMap.has(key)) {
+                        const normalizedKey = normalizeText(key);
+                        if (selectedMap.has(key) || selectedMapNormalized.has(normalizedKey)) {
                             hasSelectedArticle = true;
                             break;
                         }
@@ -1675,14 +1685,15 @@ function filterResultByArticles(result, selectedArticles) {
                 continue;
             }
             
-            // 기사 항목 (○기사 제목 (언론사))
+            // 기사 항목 (○기사 제목 (언론사)) - 정규화 비교
             const articleMatch = line.match(/^○(.+?)\s*\(([^)]+)\)$/);
             if (articleMatch) {
                 const title = articleMatch[1].trim();
                 const publisher = articleMatch[2].trim();
                 const key = `${publisher}|${title}`;
+                const normalizedKey = normalizeText(key);
                 
-                if (selectedMap.has(key)) {
+                if (selectedMap.has(key) || selectedMapNormalized.has(normalizedKey)) {
                     filteredLines.push(lines[i]);
                 }
                 continue;
@@ -1761,18 +1772,36 @@ function filterResultByArticles(result, selectedArticles) {
                     }
                 }
                 
-                // 매칭 시도: publisher|title 형식
+                // 매칭 시도: publisher|title 형식 (정규화 비교)
                 if (currentTitle) {
                     const key = `${currentPublisher}|${currentTitle}`;
                     includeCurrentArticle = selectedMap.has(key);
+                    
+                    // 정확 매칭 실패 시 정규화 비교
+                    if (!includeCurrentArticle) {
+                        const normalizedKey = normalizeText(key);
+                        includeCurrentArticle = selectedMapNormalized.has(normalizedKey);
+                        if (includeCurrentArticle) {
+                            console.log('[필터링] 정규화 매칭 성공:', { 
+                                publisher: currentPublisher, 
+                                title: currentTitle, 
+                                normalizedKey 
+                            });
+                        }
+                    }
                 }
                 
-                // 제목이 없거나 매칭 실패 시 publisher만으로 매칭 시도
+                // 제목이 없거나 매칭 실패 시 publisher만으로 매칭 시도 (정규화 비교)
                 if (!includeCurrentArticle) {
-                    for (const [key, article] of selectedMap.entries()) {
-                        if (key.startsWith(`${currentPublisher}|`)) {
+                    const normalizedPublisher = normalizeText(currentPublisher);
+                    for (const [normalizedKey, article] of selectedMapNormalized.entries()) {
+                        if (normalizedKey.startsWith(`${normalizedPublisher}|`)) {
                             includeCurrentArticle = true;
                             currentTitle = article.title; // 제목도 설정
+                            console.log('[필터링] Publisher만으로 매칭:', { 
+                                publisher: currentPublisher, 
+                                matchedTitle: article.title 
+                            });
                             break;
                         }
                     }
@@ -1791,11 +1820,29 @@ function filterResultByArticles(result, selectedArticles) {
                 const key = `${currentPublisher}|${currentTitle}`;
                 includeCurrentArticle = selectedMap.has(key);
                 
-                // 매칭 실패 시 publisher만으로 매칭 시도
+                // 정확 매칭 실패 시 정규화 비교
                 if (!includeCurrentArticle) {
-                    for (const [mapKey, article] of selectedMap.entries()) {
-                        if (mapKey.startsWith(`${currentPublisher}|`)) {
+                    const normalizedKey = normalizeText(key);
+                    includeCurrentArticle = selectedMapNormalized.has(normalizedKey);
+                    if (includeCurrentArticle) {
+                        console.log('[필터링] 정규화 매칭 성공 (제목 추출 후):', { 
+                            publisher: currentPublisher, 
+                            title: currentTitle, 
+                            normalizedKey 
+                        });
+                    }
+                }
+                
+                // 매칭 실패 시 publisher만으로 매칭 시도 (정규화 비교)
+                if (!includeCurrentArticle) {
+                    const normalizedPublisher = normalizeText(currentPublisher);
+                    for (const [normalizedMapKey, article] of selectedMapNormalized.entries()) {
+                        if (normalizedMapKey.startsWith(`${normalizedPublisher}|`)) {
                             includeCurrentArticle = true;
+                            console.log('[필터링] Publisher만으로 매칭 (제목 추출 후):', { 
+                                publisher: currentPublisher, 
+                                matchedTitle: article.title 
+                            });
                             break;
                         }
                     }

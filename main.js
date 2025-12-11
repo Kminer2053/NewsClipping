@@ -794,9 +794,10 @@ function displayResult(result) {
         let detectionLine = line.replace(/\s*\([^)]*\)\s*$/, '').trim(); // 괄호 제거
         const isKoreanPublisher = detectionLine.match(/^[가-힣][가-힣\s\d\w]*$/);
         const isEnglishPublisher = detectionLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+        const isEnglishWithSpace = detectionLine.match(/^[A-Z][A-Z0-9\s]{1,15}$/); // 공백 포함 영어 (예: "SBS Biz")
         const isMixedPublisher = detectionLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
         
-        const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
+        const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher || isEnglishWithSpace || isMixedPublisher) && 
             !detectionLine.includes('주요') && !detectionLine.includes('브리핑') && 
             detectionLine.length < 30 && !detectionLine.startsWith('☐') && !detectionLine.startsWith('○') && 
             !detectionLine.startsWith('**') && detectionLine !== '---' && !detectionLine.match(/^\(URL/) &&
@@ -869,10 +870,11 @@ function displayResult(result) {
             // 한글로 시작하는 언론사명 또는 영문 대문자만으로 구성된 언론사명 (KBS, YTN 등)
             const isKoreanPublisher = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/);
             const isEnglishPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]{1,10}$/); // 영문 대문자만, 2-11자
+            const isEnglishWithSpace = publisherNameOnly.match(/^[A-Z][A-Z0-9\s]{1,15}$/); // 공백 포함 영어 (예: "SBS Biz")
             // 영문+한글 조합 (예: "HBN프레스", "YTN뉴스")
             const isMixedPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
             
-            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
+            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isEnglishWithSpace || isMixedPublisher) && 
                 !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
                 !publisherNameOnly.includes('뉴스 상세') && !publisherNameOnly.includes('상세') && 
                 publisherNameOnly.length < 30 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') && 
@@ -1059,8 +1061,9 @@ function copyKakaoFormat() {
             
             const isKoreanPublisher = publisherLine.match(/^[가-힣][가-힣\s\d\w]*$/);
             const isEnglishPublisher = publisherLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            const isEnglishWithSpace = publisherLine.match(/^[A-Z][A-Z0-9\s]{1,15}$/); // 공백 포함 영어 (예: "SBS Biz")
             const isMixedPublisher = publisherLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
-            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
+            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isEnglishWithSpace || isMixedPublisher) && 
                 !publisherLine.includes('주요') && !publisherLine.includes('브리핑') && 
                 !publisherLine.includes('뉴스 상세') && !publisherLine.includes('상세') && 
                 publisherLine.length < 30 && !publisherLine.startsWith('☐') && !publisherLine.startsWith('○') &&
@@ -1228,10 +1231,11 @@ function copyKakaoFormat_old() {
             // 한글로 시작하는 언론사명 또는 영문 대문자만으로 구성된 언론사명
             const isKoreanPublisher = publisherNameOnly.match(/^[가-힣][가-힣\s\d\w]*$/);
             const isEnglishPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            const isEnglishWithSpace = publisherNameOnly.match(/^[A-Z][A-Z0-9\s]{1,15}$/); // 공백 포함 영어 (예: "SBS Biz")
             // 영문+한글 조합 (예: "HBN프레스", "YTN뉴스")
             const isMixedPublisher = publisherNameOnly.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
             
-            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
+            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isEnglishWithSpace || isMixedPublisher) && 
                 !publisherNameOnly.includes('주요') && !publisherNameOnly.includes('브리핑') && 
                 !publisherNameOnly.includes('뉴스 상세') && !publisherNameOnly.includes('상세') && 
                 publisherNameOnly.length < 30 && !publisherNameOnly.startsWith('☐') && !publisherNameOnly.startsWith('○') &&
@@ -1487,8 +1491,9 @@ function parseArticlesFromResult(result) {
             
             const isKoreanPublisher = publisherLine.match(/^[가-힣][가-힣\s\d\w]*$/);
             const isEnglishPublisher = publisherLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            const isEnglishWithSpace = publisherLine.match(/^[A-Z][A-Z0-9\s]{1,15}$/); // 공백 포함 영어 (예: "SBS Biz")
             const isMixedPublisher = publisherLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
-            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
+            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isEnglishWithSpace || isMixedPublisher) && 
                 !publisherLine.includes('주요') && !publisherLine.includes('브리핑') && 
                 publisherLine.length < 30 && !publisherLine.startsWith('☐') && !publisherLine.startsWith('○') &&
                 !publisherLine.startsWith('**') && publisherLine !== '---' && !publisherLine.match(/^\(URL/) &&
@@ -1770,8 +1775,9 @@ function filterResultByArticles(result, selectedArticles) {
             
             const isKoreanPublisher = publisherLine.match(/^[가-힣][가-힣\s\d\w]*$/);
             const isEnglishPublisher = publisherLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            const isEnglishWithSpace = publisherLine.match(/^[A-Z][A-Z0-9\s]{1,15}$/); // 공백 포함 영어 (예: "SBS Biz")
             const isMixedPublisher = publisherLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
-            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
+            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isEnglishWithSpace || isMixedPublisher) && 
                 !publisherLine.includes('주요') && !publisherLine.includes('브리핑') && 
                 !publisherLine.includes('뉴스 상세') && !publisherLine.includes('상세') && 
                 publisherLine.length < 30 && !publisherLine.startsWith('☐') && !publisherLine.startsWith('○') &&

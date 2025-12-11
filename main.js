@@ -1026,12 +1026,89 @@ function copyKakaoFormat() {
     }
 
     // 현재 결과에서 기사 파싱 (필터링된 결과 사용 - 이미 선택된 기사만 포함)
-    const articles = parseArticlesFromResult(window.currentResult);
+    let articles = parseArticlesFromResult(window.currentResult);
     
     if (articles.length === 0) {
         console.warn('[카카오톡] 파싱된 기사가 없습니다. 원본 결과를 확인합니다.');
         alert('기사를 파싱하지 못했습니다. 미리보기에서 기사가 정상적으로 표시되는지 확인해주세요.');
         return;
+    }
+    
+    // URL이 없는 기사는 상세 페이지에서 다시 추출
+    const lines = window.currentResult.split('\n');
+    let currentPublisher = null;
+    let currentTitle = null;
+    let currentUrl = null;
+    let inDetailPage = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        if (line === '---' || line.startsWith('* 각 뉴스 상세 페이지')) {
+            inDetailPage = true;
+            continue;
+        }
+        
+        if (inDetailPage) {
+            // 언론사명 감지
+            let publisherLine = line.replace(/\s*\([^)]*\)\s*$/, '').trim();
+            const hasNumber = publisherLine.match(/^\d+\.\s*(.+)$/);
+            if (hasNumber) publisherLine = hasNumber[1];
+            
+            const isKoreanPublisher = publisherLine.match(/^[가-힣][가-힣\s\d\w]*$/);
+            const isEnglishPublisher = publisherLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            const isMixedPublisher = publisherLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
+            const isPublisherName = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
+                !publisherLine.includes('주요') && !publisherLine.includes('브리핑') && 
+                !publisherLine.includes('뉴스 상세') && !publisherLine.includes('상세') && 
+                publisherLine.length < 30 && !publisherLine.startsWith('☐') && !publisherLine.startsWith('○') &&
+                !publisherLine.startsWith('**') && publisherLine !== '---' && !publisherLine.match(/^\(URL/) &&
+                !publisherLine.match(/^https?:\/\//) && !publisherLine.match(/^\(URL 생략/) &&
+                !publisherLine.match(/^URL:/i);
+            
+            if (isPublisherName) {
+                // 이전 기사 URL 저장
+                if (currentPublisher && currentTitle) {
+                    const article = articles.find(a => a.publisher === currentPublisher && a.title === currentTitle);
+                    if (article && !article.url && currentUrl) {
+                        article.url = currentUrl;
+                    }
+                }
+                currentPublisher = publisherLine;
+                currentTitle = null;
+                currentUrl = null;
+                continue;
+            }
+            
+            // 제목 추출
+            const titleMatch = line.match(/\*\*(.+?)\*\*/);
+            if (titleMatch) {
+                currentTitle = titleMatch[1].trim();
+                continue;
+            }
+            
+            // URL 추출
+            const urlMatch = line.match(/^(?:URL:\s*)?(https?:\/\/.+)$/i);
+            if (urlMatch) {
+                currentUrl = urlMatch[1].trim();
+                // 즉시 기사에 URL 추가
+                if (currentPublisher && currentTitle) {
+                    const article = articles.find(a => a.publisher === currentPublisher && a.title === currentTitle);
+                    if (article) {
+                        article.url = currentUrl;
+                    }
+                }
+                continue;
+            }
+        }
+    }
+    
+    // 마지막 기사 URL 저장
+    if (currentPublisher && currentTitle && currentUrl) {
+        const article = articles.find(a => a.publisher === currentPublisher && a.title === currentTitle);
+        if (article) {
+            article.url = currentUrl;
+        }
     }
     
     // 카카오톡 형식으로 변환
@@ -1550,9 +1627,35 @@ function filterResultByArticles(result, selectedArticles) {
         
         // 요약 페이지 처리
         if (inSummaryPage) {
-            // 카테고리 유지
+            // 카테고리 감지
             if (line.match(/^☐\s*/)) {
-                filteredLines.push(lines[i]);
+                // 다음 기사들을 확인하여 이 카테고리에 선택된 기사가 있는지 체크
+                let hasSelectedArticle = false;
+                let j = i + 1;
+                while (j < lines.length) {
+                    const nextLine = lines[j].trim();
+                    // 다음 카테고리나 상세 페이지 시작이면 중단
+                    if (nextLine.match(/^☐\s*/) || nextLine === '---' || nextLine.startsWith('* 각 뉴스 상세 페이지')) {
+                        break;
+                    }
+                    // 기사 항목 확인
+                    const articleMatch = nextLine.match(/^○(.+?)\s*\(([^)]+)\)$/);
+                    if (articleMatch) {
+                        const title = articleMatch[1].trim();
+                        const publisher = articleMatch[2].trim();
+                        const key = `${publisher}|${title}`;
+                        if (selectedMap.has(key)) {
+                            hasSelectedArticle = true;
+                            break;
+                        }
+                    }
+                    j++;
+                }
+                
+                // 선택된 기사가 있는 카테고리만 추가
+                if (hasSelectedArticle) {
+                    filteredLines.push(lines[i]);
+                }
                 continue;
             }
             
@@ -1569,9 +1672,12 @@ function filterResultByArticles(result, selectedArticles) {
                 continue;
             }
             
-            // 기타 요약 페이지 내용 유지
+            // 기타 요약 페이지 내용 유지 (헤더, 날짜 등)
             if (line && !line.startsWith('*')) {
-                filteredLines.push(lines[i]);
+                // 헤더와 날짜는 유지
+                if (line === '주요 뉴스 브리핑' || line.match(/^\[.*\]$/) || line.match(/^\d{2}\.\d{2}\.\d{2}\./)) {
+                    filteredLines.push(lines[i]);
+                }
             }
         }
         
@@ -1609,19 +1715,50 @@ function filterResultByArticles(result, selectedArticles) {
                 // 새 기사 시작
                 currentPublisher = publisherLine;
                 currentTitle = null;
+                includeCurrentArticle = false; // 초기화
                 
-                // 제목 추출 시도 (다음 줄에서)
-                const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : '';
-                const titleMatch = nextLine.match(/\*\*(.+?)\*\*/);
-                if (titleMatch) {
-                    currentTitle = titleMatch[1].trim();
-                } else if (nextLine && nextLine.length > 10 && !nextLine.match(/^https?:\/\//) && !nextLine.startsWith('URL:')) {
-                    // 볼드체가 없으면 다음 줄이 제목일 수 있음
-                    currentTitle = nextLine;
+                // 제목 추출 시도 (다음 몇 줄에서)
+                for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+                    const nextLine = lines[j].trim();
+                    // 다음 언론사명이 나오면 중단
+                    const nextHasNumber = nextLine.match(/^\d+\.\s*(.+)$/);
+                    let nextPublisherLine = nextHasNumber ? nextHasNumber[1] : nextLine;
+                    nextPublisherLine = nextPublisherLine.replace(/\s*\([^)]*\)\s*$/, '').trim();
+                    const nextIsKorean = nextPublisherLine.match(/^[가-힣][가-힣\s\d\w]*$/);
+                    const nextIsEnglish = nextPublisherLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+                    const nextIsMixed = nextPublisherLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
+                    const nextIsPublisher = (nextIsKorean || nextIsEnglish || nextIsMixed) && 
+                        !nextPublisherLine.includes('주요') && !nextPublisherLine.includes('브리핑') && 
+                        !nextPublisherLine.includes('뉴스 상세') && !nextPublisherLine.includes('상세') && 
+                        nextPublisherLine.length < 30 && !nextPublisherLine.startsWith('☐') && 
+                        !nextPublisherLine.startsWith('○') && !nextPublisherLine.startsWith('**');
+                    
+                    if (nextIsPublisher && j > i + 1) {
+                        break;
+                    }
+                    
+                    // 제목 추출 (볼드체)
+                    const titleMatch = nextLine.match(/\*\*(.+?)\*\*/);
+                    if (titleMatch) {
+                        currentTitle = titleMatch[1].trim();
+                        break;
+                    }
                 }
                 
-                const key = `${currentPublisher}|${currentTitle || ''}`;
-                includeCurrentArticle = selectedMap.has(key);
+                // 매칭 시도: publisher|title 형식
+                if (currentTitle) {
+                    const key = `${currentPublisher}|${currentTitle}`;
+                    includeCurrentArticle = selectedMap.has(key);
+                } else {
+                    // 제목이 없으면 publisher만으로 매칭 시도 (마지막 수단)
+                    for (const [key, article] of selectedMap.entries()) {
+                        if (key.startsWith(`${currentPublisher}|`)) {
+                            includeCurrentArticle = true;
+                            currentTitle = article.title;
+                            break;
+                        }
+                    }
+                }
                 
                 if (includeCurrentArticle) {
                     filteredLines.push(lines[i]);
@@ -1629,7 +1766,7 @@ function filterResultByArticles(result, selectedArticles) {
                 continue;
             }
             
-            // 제목 추출 (볼드체)
+            // 제목 추출 (볼드체) - 이미 언론사명을 만난 후
             const titleMatch = line.match(/\*\*(.+?)\*\*/);
             if (titleMatch && currentPublisher && !currentTitle) {
                 currentTitle = titleMatch[1].trim();

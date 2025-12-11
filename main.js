@@ -1165,7 +1165,7 @@ async function generatePDF() {
     }
 
     try {
-        const date = document.getElementById('dateInput').value || new Date().toISOString().split('T')[0];
+        const date = document.getElementById('dateInput').value || getTodayString();
         const filename = `뉴스클리핑_${date}`;
 
         // 서버에 PDF 생성 요청

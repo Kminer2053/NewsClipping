@@ -1840,6 +1840,7 @@ function filterResultByArticles(result, selectedArticles) {
         
         // 상세 페이지 구분
         if (line === '---' || line.startsWith('* 각 뉴스 상세 페이지')) {
+            console.log('[필터링] 상세 페이지 마커 감지:', { line, lineNumber: i, hasDetailPageMarker });
             inSummaryPage = false;
             filteredLines.push(lines[i]);
             continue;
@@ -1853,8 +1854,9 @@ function filterResultByArticles(result, selectedArticles) {
             
             const isKoreanPublisher = publisherLine.match(/^[가-힣][가-힣\s\d\w]*$/);
             const isEnglishPublisher = publisherLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            const isEnglishWithSpace = publisherLine.match(/^[A-Z][A-Z0-9\s]{1,15}$/); // 공백 포함 영어 (예: "SBS Biz")
             const isMixedPublisher = publisherLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
-            const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
+            const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher || isEnglishWithSpace || isMixedPublisher) && 
                 !publisherLine.includes('주요') && !publisherLine.includes('브리핑') && 
                 !publisherLine.includes('뉴스 상세') && !publisherLine.includes('상세') && 
                 publisherLine.length < 30 && !publisherLine.startsWith('☐') && !publisherLine.startsWith('○') && 
@@ -1873,6 +1875,11 @@ function filterResultByArticles(result, selectedArticles) {
         
         // 상세 페이지 처리
         if (!inSummaryPage) {
+            // 상세 페이지 처리 시작 로그 (첫 번째 라인만)
+            if (i === 0 || (i > 0 && (lines[i-1].trim() === '---' || lines[i-1].trim().startsWith('* 각 뉴스 상세 페이지')))) {
+                console.log('[필터링] 상세 페이지 처리 시작:', { lineNumber: i, line: line.substring(0, 50) });
+            }
+            
             // 언론사명 감지
             let publisherLine = line.replace(/\s*\([^)]*\)\s*$/, '').trim();
             const hasNumber = publisherLine.match(/^\d+\.\s*(.+)$/);

@@ -101,7 +101,7 @@ const CURRENT_VERSION = '2.1.2'; // 기본값 업데이트 시 버전 증가
 
 // 초기 기본값
 const INITIAL_DEFAULTS = {
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayString(),
     header: "",
     basicSetting: `당신의 역할:
 - 당신은 코레일유통 홍보문화처가 매일 받아보는 "주요 뉴스 브리핑"을 대신 제작하는 전문 뉴스클리핑 용역사의 책임 편집자입니다.
@@ -204,8 +204,14 @@ const INITIAL_DEFAULTS = {
     }
 };
 
+// 한국시간 기준 오늘 날짜 구하기
 function getTodayString() {
-    return new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const koreaTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Seoul"}));
+    const year = koreaTime.getFullYear();
+    const month = String(koreaTime.getMonth() + 1).padStart(2, '0');
+    const day = String(koreaTime.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 // 기본값 로드

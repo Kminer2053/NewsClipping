@@ -736,6 +736,7 @@ async function generateContent() {
         
         // 결과를 전역 변수에 저장 (PDF, 복사 등에서 사용)
         window.currentResult = result;
+        window.originalResult = result; // 원본 결과도 저장 (URL 추출용)
         
         // 기사 목록 파싱 및 선택 UI 표시
         console.log('[기사 선택] 원본 결과 일부:', result.substring(0, 500));
@@ -1034,8 +1035,9 @@ function copyKakaoFormat() {
         return;
     }
     
-    // URL이 없는 기사는 상세 페이지에서 다시 추출
-    const lines = window.currentResult.split('\n');
+    // URL이 없는 기사는 상세 페이지에서 다시 추출 (원본 결과 사용)
+    const originalResult = window.originalResult || window.currentResult;
+    const lines = originalResult.split('\n');
     let currentPublisher = null;
     let currentTitle = null;
     let currentUrl = null;
@@ -1087,15 +1089,20 @@ function copyKakaoFormat() {
                 continue;
             }
             
-            // URL 추출
-            const urlMatch = line.match(/^(?:URL:\s*)?(https?:\/\/.+)$/i);
+            // URL 추출 - 더 유연한 정규식
+            const urlMatch1 = line.match(/^URL:\s*(https?:\/\/.+)$/i);
+            const urlMatch2 = line.match(/^(https?:\/\/.+)$/i);
+            const urlMatch = urlMatch1 || urlMatch2;
+            
             if (urlMatch) {
-                currentUrl = urlMatch[1].trim();
+                currentUrl = urlMatch[1] || urlMatch[0];
+                currentUrl = currentUrl.trim();
                 // 즉시 기사에 URL 추가
                 if (currentPublisher && currentTitle) {
                     const article = articles.find(a => a.publisher === currentPublisher && a.title === currentTitle);
                     if (article) {
                         article.url = currentUrl;
+                        console.log('[카카오톡] URL 추가:', { publisher: currentPublisher, title: currentTitle, url: currentUrl });
                     }
                 }
                 continue;
@@ -1108,8 +1115,16 @@ function copyKakaoFormat() {
         const article = articles.find(a => a.publisher === currentPublisher && a.title === currentTitle);
         if (article) {
             article.url = currentUrl;
+            console.log('[카카오톡] 마지막 기사 URL 추가:', { publisher: currentPublisher, title: currentTitle, url: currentUrl });
         }
     }
+    
+    // 디버깅: URL이 없는 기사 확인
+    articles.forEach((article, idx) => {
+        if (!article.url) {
+            console.warn('[카카오톡] URL 없음:', { index: idx, publisher: article.publisher, title: article.title });
+        }
+    });
     
     // 카카오톡 형식으로 변환
     let kakaoText = dateText;
@@ -1580,9 +1595,10 @@ function displayArticleSelection(articles) {
             const selectedArticles = selectedIndices.map(idx => articles.find(a => a.index === idx)).filter(Boolean);
             
             // 선택된 기사만으로 결과 재생성
-            const filteredResult = filterResultByArticles(window.currentResult, selectedArticles);
+            const filteredResult = filterResultByArticles(window.originalResult || window.currentResult, selectedArticles);
             displayResult(filteredResult);
             window.currentResult = filteredResult;
+            // 원본 결과는 유지 (URL 추출용)
             
             // 선택 UI 숨기기
             document.getElementById('articleSelectionCard').style.display = 'none';
@@ -1749,12 +1765,14 @@ function filterResultByArticles(result, selectedArticles) {
                 if (currentTitle) {
                     const key = `${currentPublisher}|${currentTitle}`;
                     includeCurrentArticle = selectedMap.has(key);
-                } else {
-                    // 제목이 없으면 publisher만으로 매칭 시도 (마지막 수단)
+                }
+                
+                // 제목이 없거나 매칭 실패 시 publisher만으로 매칭 시도
+                if (!includeCurrentArticle) {
                     for (const [key, article] of selectedMap.entries()) {
                         if (key.startsWith(`${currentPublisher}|`)) {
                             includeCurrentArticle = true;
-                            currentTitle = article.title;
+                            currentTitle = article.title; // 제목도 설정
                             break;
                         }
                     }
@@ -1772,6 +1790,17 @@ function filterResultByArticles(result, selectedArticles) {
                 currentTitle = titleMatch[1].trim();
                 const key = `${currentPublisher}|${currentTitle}`;
                 includeCurrentArticle = selectedMap.has(key);
+                
+                // 매칭 실패 시 publisher만으로 매칭 시도
+                if (!includeCurrentArticle) {
+                    for (const [mapKey, article] of selectedMap.entries()) {
+                        if (mapKey.startsWith(`${currentPublisher}|`)) {
+                            includeCurrentArticle = true;
+                            break;
+                        }
+                    }
+                }
+                
                 // 제목이 선택된 기사에 포함되면 추가
                 if (includeCurrentArticle) {
                     filteredLines.push(lines[i]);

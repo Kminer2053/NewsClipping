@@ -1045,6 +1045,67 @@ function copyKakaoFormat() {
     let currentUrl = null;
     let inDetailPage = false;
     
+    // 정규화 함수
+    function normalizeText(text) {
+        if (!text) return '';
+        return text.replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+    
+    // 기사 매칭 함수 (정규화 및 유사도 비교)
+    function findMatchingArticle(publisher, title) {
+        // 1. 정확 매칭
+        let article = articles.find(a => a.publisher === publisher && a.title === title);
+        if (article) return article;
+        
+        // 2. 정규화 매칭
+        const normalizedPublisher = normalizeText(publisher);
+        const normalizedTitle = normalizeText(title);
+        article = articles.find(a => {
+            const normalizedArticlePublisher = normalizeText(a.publisher);
+            const normalizedArticleTitle = normalizeText(a.title);
+            return normalizedArticlePublisher === normalizedPublisher && 
+                   normalizedArticleTitle === normalizedTitle;
+        });
+        if (article) return article;
+        
+        // 3. 유사도 매칭 (70% 이상)
+        if (normalizedTitle.length > 10) {
+            let bestMatch = null;
+            let bestScore = 0;
+            
+            articles.forEach(a => {
+                const normalizedArticlePublisher = normalizeText(a.publisher);
+                const normalizedArticleTitle = normalizeText(a.title);
+                
+                if (normalizedArticlePublisher === normalizedPublisher) {
+                    // 완전 일치
+                    if (normalizedArticleTitle === normalizedTitle) {
+                        bestMatch = a;
+                        bestScore = 100;
+                    } 
+                    // 포함 관계 또는 유사도 계산
+                    else if (normalizedArticleTitle.includes(normalizedTitle) || 
+                             normalizedTitle.includes(normalizedArticleTitle)) {
+                        const commonLength = Math.min(normalizedArticleTitle.length, normalizedTitle.length);
+                        const maxLength = Math.max(normalizedArticleTitle.length, normalizedTitle.length);
+                        const score = (commonLength / maxLength) * 100;
+                        
+                        if (score > bestScore && score >= 70) {
+                            bestScore = score;
+                            bestMatch = a;
+                        }
+                    }
+                }
+            });
+            
+            if (bestMatch) {
+                return bestMatch;
+            }
+        }
+        
+        return null;
+    }
+    
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         
@@ -1074,9 +1135,15 @@ function copyKakaoFormat() {
             if (isPublisherName) {
                 // 이전 기사 URL 저장
                 if (currentPublisher && currentTitle) {
-                    const article = articles.find(a => a.publisher === currentPublisher && a.title === currentTitle);
+                    const article = findMatchingArticle(currentPublisher, currentTitle);
                     if (article && !article.url && currentUrl) {
                         article.url = currentUrl;
+                        console.log('[카카오톡] URL 추가 (이전 기사):', { 
+                            publisher: currentPublisher, 
+                            title: currentTitle, 
+                            matchedTitle: article.title,
+                            url: currentUrl 
+                        });
                     }
                 }
                 currentPublisher = publisherLine;
@@ -1102,10 +1169,20 @@ function copyKakaoFormat() {
                 currentUrl = currentUrl.trim();
                 // 즉시 기사에 URL 추가
                 if (currentPublisher && currentTitle) {
-                    const article = articles.find(a => a.publisher === currentPublisher && a.title === currentTitle);
+                    const article = findMatchingArticle(currentPublisher, currentTitle);
                     if (article) {
                         article.url = currentUrl;
-                        console.log('[카카오톡] URL 추가:', { publisher: currentPublisher, title: currentTitle, url: currentUrl });
+                        console.log('[카카오톡] URL 추가:', { 
+                            publisher: currentPublisher, 
+                            title: currentTitle, 
+                            matchedTitle: article.title,
+                            url: currentUrl 
+                        });
+                    } else {
+                        console.warn('[카카오톡] 매칭 기사 없음:', { 
+                            publisher: currentPublisher, 
+                            title: currentTitle 
+                        });
                     }
                 }
                 continue;
@@ -1115,10 +1192,15 @@ function copyKakaoFormat() {
     
     // 마지막 기사 URL 저장
     if (currentPublisher && currentTitle && currentUrl) {
-        const article = articles.find(a => a.publisher === currentPublisher && a.title === currentTitle);
+        const article = findMatchingArticle(currentPublisher, currentTitle);
         if (article) {
             article.url = currentUrl;
-            console.log('[카카오톡] 마지막 기사 URL 추가:', { publisher: currentPublisher, title: currentTitle, url: currentUrl });
+            console.log('[카카오톡] 마지막 기사 URL 추가:', { 
+                publisher: currentPublisher, 
+                title: currentTitle, 
+                matchedTitle: article.title,
+                url: currentUrl 
+            });
         }
     }
     
@@ -1898,8 +1980,28 @@ function filterResultByArticles(result, selectedArticles) {
                                 const maxLength = Math.max(articleTitleNormalized.length, normalizedCurrentTitle.length);
                                 const score = (commonLength / maxLength) * 100;
                                 
-                                if (score > bestScore && score >= 50) { // 50% 이상 유사도만 매칭
-                                    bestScore = score;
+                                // 포함 관계인 경우 더 높은 점수 부여
+                                const inclusionBonus = (articleTitleNormalized.includes(normalizedCurrentTitle) || 
+                                                      normalizedCurrentTitle.includes(articleTitleNormalized)) ? 20 : 0;
+                                const finalScore = score + inclusionBonus;
+                                
+                                if (finalScore > bestScore && finalScore >= 60) { // 60% 이상 유사도만 매칭 (포함 관계 보너스 포함)
+                                    bestScore = finalScore;
+                                    bestMatch = article;
+                                }
+                            }
+                            
+                            // 제목의 주요 키워드가 일치하는 경우 (예: "코레일유통, 행정안전부 장관상 수상" vs "코레일유통, '행안부 장관상' 수상…청년마을 지원 공로 인정")
+                            // 공통 단어 비율 계산
+                            const currentWords = normalizedCurrentTitle.split(/\s+/).filter(w => w.length > 2);
+                            const articleWords = articleTitleNormalized.split(/\s+/).filter(w => w.length > 2);
+                            if (currentWords.length > 0 && articleWords.length > 0) {
+                                const commonWords = currentWords.filter(w => articleWords.includes(w));
+                                const wordScore = (commonWords.length / Math.max(currentWords.length, articleWords.length)) * 100;
+                                
+                                // 주요 키워드가 70% 이상 일치하면 매칭
+                                if (wordScore > bestScore && wordScore >= 70) {
+                                    bestScore = wordScore;
                                     bestMatch = article;
                                 }
                             }
@@ -1995,8 +2097,28 @@ function filterResultByArticles(result, selectedArticles) {
                                 const maxLength = Math.max(articleTitleNormalized.length, normalizedCurrentTitle.length);
                                 const score = (commonLength / maxLength) * 100;
                                 
-                                if (score > bestScore && score >= 50) { // 50% 이상 유사도만 매칭
-                                    bestScore = score;
+                                // 포함 관계인 경우 더 높은 점수 부여
+                                const inclusionBonus = (articleTitleNormalized.includes(normalizedCurrentTitle) || 
+                                                      normalizedCurrentTitle.includes(articleTitleNormalized)) ? 20 : 0;
+                                const finalScore = score + inclusionBonus;
+                                
+                                if (finalScore > bestScore && finalScore >= 60) { // 60% 이상 유사도만 매칭 (포함 관계 보너스 포함)
+                                    bestScore = finalScore;
+                                    bestMatch = article;
+                                }
+                            }
+                            
+                            // 제목의 주요 키워드가 일치하는 경우 (예: "코레일유통, 행정안전부 장관상 수상" vs "코레일유통, '행안부 장관상' 수상…청년마을 지원 공로 인정")
+                            // 공통 단어 비율 계산
+                            const currentWords = normalizedCurrentTitle.split(/\s+/).filter(w => w.length > 2);
+                            const articleWords = articleTitleNormalized.split(/\s+/).filter(w => w.length > 2);
+                            if (currentWords.length > 0 && articleWords.length > 0) {
+                                const commonWords = currentWords.filter(w => articleWords.includes(w));
+                                const wordScore = (commonWords.length / Math.max(currentWords.length, articleWords.length)) * 100;
+                                
+                                // 주요 키워드가 70% 이상 일치하면 매칭
+                                if (wordScore > bestScore && wordScore >= 70) {
+                                    bestScore = wordScore;
                                     bestMatch = article;
                                 }
                             }

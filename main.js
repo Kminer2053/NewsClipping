@@ -788,8 +788,9 @@ function displayResult(result) {
         let detectionLine = line.replace(/\s*\([^)]*\)\s*$/, '').trim(); // 괄호 제거
         const isKoreanPublisher = detectionLine.match(/^[가-힣][가-힣\s\d\w]*$/);
         const isEnglishPublisher = detectionLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+        const isMixedPublisher = detectionLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
         
-        const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher) && 
+        const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
             !detectionLine.includes('주요') && !detectionLine.includes('브리핑') && 
             detectionLine.length < 30 && !detectionLine.startsWith('☐') && !detectionLine.startsWith('○') && 
             !detectionLine.startsWith('**') && detectionLine !== '---' && !detectionLine.match(/^\(URL/) &&

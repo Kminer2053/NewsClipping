@@ -1624,10 +1624,12 @@ function displayArticleSelection(articles) {
 
 // 선택된 기사만으로 결과 필터링
 function filterResultByArticles(result, selectedArticles) {
+    const hasDetailPageMarker = result.includes('---') || result.includes('* 각 뉴스 상세 페이지');
     console.log('[필터링 시작]', { 
         resultLength: result.length, 
         selectedArticlesCount: selectedArticles.length,
-        hasDetailPage: result.includes('---') || result.includes('* 각 뉴스 상세 페이지')
+        hasDetailPage: hasDetailPageMarker,
+        resultPreview: result.substring(0, 500)
     });
     
     // 텍스트 정규화 함수 (공백 정리, 소문자 변환)
@@ -1664,15 +1666,21 @@ function filterResultByArticles(result, selectedArticles) {
         
         // 요약 페이지 처리
         if (inSummaryPage) {
-            // 카테고리 감지
-            if (line.match(/^☐\s*/)) {
+            // 카테고리 감지 (☐로 시작하거나 **☐ 형식)
+            const categoryMatch1 = line.match(/^☐\s*/);
+            const categoryMatch2 = line.match(/^\*\*☐\s*/);
+            const categoryMatch3 = line.match(/^☐\s*\*\*/);
+            if (categoryMatch1 || categoryMatch2 || categoryMatch3) {
                 // 다음 기사들을 확인하여 이 카테고리에 선택된 기사가 있는지 체크
                 let hasSelectedArticle = false;
                 let j = i + 1;
                 while (j < lines.length) {
                     const nextLine = lines[j].trim();
                     // 다음 카테고리나 상세 페이지 시작이면 중단
-                    if (nextLine.match(/^☐\s*/) || nextLine === '---' || nextLine.startsWith('* 각 뉴스 상세 페이지')) {
+                    const nextCategoryMatch1 = nextLine.match(/^☐\s*/);
+                    const nextCategoryMatch2 = nextLine.match(/^\*\*☐\s*/);
+                    const nextCategoryMatch3 = nextLine.match(/^☐\s*\*\*/);
+                    if (nextCategoryMatch1 || nextCategoryMatch2 || nextCategoryMatch3 || nextLine === '---' || nextLine.startsWith('* 각 뉴스 상세 페이지')) {
                         break;
                     }
                     // 기사 항목 확인 (정규화 비교)
@@ -1725,6 +1733,32 @@ function filterResultByArticles(result, selectedArticles) {
             inSummaryPage = false;
             filteredLines.push(lines[i]);
             continue;
+        }
+        
+        // 상세 페이지 자동 감지: 요약 페이지에서 언론사명 패턴이 나오면 상세 페이지로 전환
+        if (inSummaryPage && !hasDetailPageMarker) {
+            let publisherLine = line.replace(/\s*\([^)]*\)\s*$/, '').trim();
+            const hasNumber = publisherLine.match(/^\d+\.\s*(.+)$/);
+            if (hasNumber) publisherLine = hasNumber[1];
+            
+            const isKoreanPublisher = publisherLine.match(/^[가-힣][가-힣\s\d\w]*$/);
+            const isEnglishPublisher = publisherLine.match(/^[A-Z][A-Z0-9]{1,10}$/);
+            const isMixedPublisher = publisherLine.match(/^[A-Z][A-Z0-9]*[가-힣][가-힣\s\d\w]*$/);
+            const isPublisherNameForDetection = (isKoreanPublisher || isEnglishPublisher || isMixedPublisher) && 
+                !publisherLine.includes('주요') && !publisherLine.includes('브리핑') && 
+                !publisherLine.includes('뉴스 상세') && !publisherLine.includes('상세') && 
+                publisherLine.length < 30 && !publisherLine.startsWith('☐') && !publisherLine.startsWith('○') && 
+                !publisherLine.startsWith('**') && publisherLine !== '---' && !publisherLine.match(/^\(URL/) &&
+                !publisherLine.match(/^https?:\/\//) && !publisherLine.match(/^\(URL 생략/);
+            
+            if (isPublisherNameForDetection && i > 5) { // 요약 페이지에서 언론사명이 나오면 상세 페이지로 전환
+                console.log('[필터링] 상세 페이지 자동 감지:', { 
+                    publisher: publisherLine, 
+                    lineNumber: i,
+                    line: lines[i]
+                });
+                inSummaryPage = false;
+            }
         }
         
         // 상세 페이지 처리

@@ -1045,10 +1045,16 @@ function copyKakaoFormat() {
     let currentUrl = null;
     let inDetailPage = false;
     
-    // 정규화 함수
+    // 정규화 함수 (따옴표 제거 추가)
     function normalizeText(text) {
         if (!text) return '';
-        return text.replace(/\s+/g, ' ').trim().toLowerCase();
+        // 따옴표 제거 (큰따옴표, 작은따옴표 모두)
+        let normalized = text.replace(/["'"]/g, '');
+        // 공백 정리
+        normalized = normalized.replace(/\s+/g, ' ').trim();
+        // 소문자 변환
+        normalized = normalized.toLowerCase();
+        return normalized;
     }
     
     // 기사 매칭 함수 (정규화 및 유사도 비교)
@@ -1577,7 +1583,10 @@ function parseArticlesFromResult(result) {
                     line: line,
                     cleanedLine: cleanedLine2,
                     currentCategory: currentCategory,
-                    articleMatch: articleMatch
+                    articleMatch: articleMatch,
+                    lineNumber: i + 1,
+                    previousLine: i > 0 ? lines[i - 1].trim() : null,
+                    nextLine: i < lines.length - 1 ? lines[i + 1].trim() : null
                 });
             }
         }
@@ -1742,10 +1751,16 @@ function filterResultByArticles(result, selectedArticles) {
         resultPreview: result.substring(0, 500)
     });
     
-    // 텍스트 정규화 함수 (공백 정리, 소문자 변환)
+    // 텍스트 정규화 함수 (따옴표 제거, 공백 정리, 소문자 변환)
     function normalizeText(text) {
         if (!text) return '';
-        return text.replace(/\s+/g, ' ').trim().toLowerCase();
+        // 따옴표 제거 (큰따옴표, 작은따옴표 모두)
+        let normalized = text.replace(/["'"]/g, '');
+        // 공백 정리
+        normalized = normalized.replace(/\s+/g, ' ').trim();
+        // 소문자 변환
+        normalized = normalized.toLowerCase();
+        return normalized;
     }
     
     const lines = result.split('\n');
